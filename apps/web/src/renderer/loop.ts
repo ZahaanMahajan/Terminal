@@ -19,6 +19,7 @@
 
 import { drawScreenDirty } from './index';
 import type { GridStyle } from './index';
+import type { GlyphCache } from './glyph-cache';
 import type { Screen } from './screen';
 import type { Cursor } from './cursor';
 import { cursorViewportRow } from './cursor';
@@ -28,6 +29,8 @@ export type LoopStats = {
   lastFrameMs: number;
   /** Wall-clock ms spent inside drawScreenDirty on this tick. 0 if no paint this tick. */
   lastPaintMs: number;
+  /** Exponential moving average of paint ms (updated only on paint ticks). Stable for a HUD. */
+  avgPaintMs: number;
   /** Number of rows painted on this tick. 0 if no paint this tick. */
   lastRowsPainted: number;
   /** Total rAF callbacks since loop start. */
@@ -41,6 +44,16 @@ export type LoopOptions = {
   blinkIntervalMs?: number;
   /** Called after each rAF callback (paint or skip). Consumers must throttle React updates. */
   onFrame?: (stats: Readonly<LoopStats>) => void;
+  /**
+   * Called each paint to choose the glyph cache (or `null` for the direct path). A getter, not
+   * a value, so the consumer can toggle the cache at runtime for an A/B comparison.
+   */
+  getCache?: () => GlyphCache | null;
+  /**
+   * Called each tick; if it returns true the loop marks every row dirty before painting. Used
+   * by a "stress" mode to measure steady-state full-screen repaint cost.
+   */
+  forceFullRepaint?: () => boolean;
 };
 
 /**
@@ -62,6 +75,7 @@ export function startRenderLoop(
   const stats: LoopStats = {
     lastFrameMs: 0,
     lastPaintMs: 0,
+    avgPaintMs: 0,
     lastRowsPainted: 0,
     framesSeen: 0,
     paintsDone: 0,
@@ -81,7 +95,10 @@ export function startRenderLoop(
     lastFrameTs = ts;
     stats.framesSeen++;
 
-    // 2. Cursor blink — toggles visibility, marks the cursor's current viewport row dirty.
+    // 2. Stress mode: force a full repaint this tick (for measuring worst-case paint cost).
+    if (opts.forceFullRepaint?.()) screen.markAllDirty();
+
+    // 3. Cursor blink — toggles visibility, marks the cursor's current viewport row dirty.
     //    If the cursor's lineId is scrolled out of view, no row gets marked (correct).
     if (cursor && ts - lastBlinkTs >= blinkIntervalMs) {
       cursor.visible = !cursor.visible;
@@ -90,11 +107,15 @@ export function startRenderLoop(
       lastBlinkTs = ts;
     }
 
-    // 3. Paint, but only if there's anything to paint.
+    // 4. Paint, but only if there's anything to paint.
     if (screen.dirty.size > 0) {
+      const cache = opts.getCache?.() ?? null;
       const t0 = performance.now();
-      const rowsPainted = drawScreenDirty(canvas, screen, style, cursor);
-      stats.lastPaintMs = performance.now() - t0;
+      const rowsPainted = drawScreenDirty(canvas, screen, style, cursor, cache);
+      const dt = performance.now() - t0;
+      stats.lastPaintMs = dt;
+      // EMA so the HUD reads a stable number instead of per-frame jitter.
+      stats.avgPaintMs = stats.avgPaintMs === 0 ? dt : stats.avgPaintMs * 0.9 + dt * 0.1;
       stats.lastRowsPainted = rowsPainted;
       stats.paintsDone++;
     } else {
@@ -102,7 +123,7 @@ export function startRenderLoop(
       stats.lastRowsPainted = 0;
     }
 
-    // 4. Observability.
+    // 5. Observability.
     opts.onFrame?.(stats);
 
     rafId = requestAnimationFrame(tick);

@@ -9,9 +9,9 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `01 — Terminal Rendering Engine` (in progress; steps 1–7 of ~8 complete)
-**Repo state:** ANSI byte stream → Screen with **bold / italic / underline / inverse** rendering; 109 Vitest tests (27ms)
-**Last updated:** 2026-05-27
+**Phase:** `02 — Keyboard & Input Systems` (in progress; step 1 of ~4 done). Phase 1 ✅ complete.
+**Repo state:** Phase 1 VT renderer complete; Phase 2 input layer landed (Key model + notation parser + scoped DOM capture). App is now a tab switcher (Terminal P1 / Keyboard P2). 150 Vitest tests (50ms)
+**Last updated:** 2026-05-28
 
 ---
 
@@ -31,8 +31,8 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 
 | Phase | Build | Core concepts | Status |
 |-------|-------|---------------|--------|
-| 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs | 🟨 in progress (steps 1–7/~8) |
-| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | 🟦 |
+| 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
+| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | 🟨 in progress (step 1/~4) |
 | 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟦 |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | 🟦 (the heart) |
 | 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 |
@@ -104,6 +104,28 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-28** — **Phase 2, step 1: input layer + Key tokens.** New `src/input/`: `key.ts`
+  (the keyboard abstraction layer — `Key = {key, mods}` from `event.code` not `event.key` for
+  layout independence; `normalizeCode`, `keyFromEvent`, `keyToken`/`keyToString` canonical
+  serialization with C-A-S-M order + shift-folds-to-uppercase-letter, vim-like `parseKeys`
+  notation with `<…>` specials, round-trips). `input-layer.ts` (scoped DOM capture — listens on
+  a focused element not window, drops standalone modifiers, `isBrowserReserved` guard so
+  Cmd+…/Ctrl+W/T/N/Q/R/L are logged but never trapped). App refactored into a **tab switcher**;
+  Phase 1 demo extracted to `src/demos/TerminalDemo.tsx`, new `src/demos/KeyboardDemo.tsx`
+  shows live key capture + physical/modifier breakdown. **+26 tests** (`key.test.ts`) for **150
+  total, 50ms**. Build: 221 KB JS / 69 KB gzip. Next: keymap + trie + mode-aware FSM (step 2).
+- **2026-05-28** — **Phase 1, step 8: glyph cache — PHASE 1 COMPLETE.** New pure `lru.ts`
+  (generic O(1) LRU over a single Map: insertion-order = recency) and `glyph-cache.ts`
+  (`GlyphCache` + `glyphKey`, DOM-free via an injected renderer). `index.ts` extracted
+  `paintCellAt` (shared by direct + cache paths), added `drawCellCached` (blit a pre-rendered
+  bitmap; trivial blank cells fast-path to a single `fillRect`), and `createDomGlyphCache`
+  (wires the DOM renderer where `paintCellAt` lives — keeps the cache module testable).
+  `drawScreen`/`drawScreenDirty` thread an optional `cache`. Loop gained `getCache` +
+  `forceFullRepaint` options and an `avgPaintMs` EMA stat. App got runtime toggles (glyph
+  cache on/off, stress full-repaint-per-frame) so the speedup is measurable in the HUD —
+  *measure before optimizing*. Fixed parameter-property syntax (constructor `private readonly`)
+  → explicit fields for `erasableSyntaxOnly`. **+15 tests** (7 lru + 8 glyph-cache) for **124
+  total, 34ms**. Build: 215 KB JS / 68 KB gzip. **Phase 1 exit criteria all met.**
 - **2026-05-27** — **Phase 1, step 7: cell style attrs (bold / italic / underline / inverse).**
   Added `ATTR_*` bit-flag constants and an *optional* `attrs?: number` on `Cell` (keeps
   emptyCell narrow and existing test literals stable). `Pen` got a required `attrs: number`.

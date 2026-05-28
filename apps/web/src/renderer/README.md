@@ -25,18 +25,23 @@ src/renderer/
 │  ├─ index.ts         ← public surface
 │  ├─ parser.test.ts   ← state machine, params, OSC, abort/recovery, stream safety
 │  └─ interpret.test.ts ← print/wrap/C0/CSI motion/CSI erase/SGR colors
-├─ index.ts            ← measureCell, fitCanvas, drawCell, drawScreen, drawScreenDirty, re-exports
+├─ lru.ts              ← generic LRU cache (pure; backs the glyph cache)
+├─ glyph-cache.ts      ← GlyphCache + glyphKey (DOM-free; injected renderer)
+├─ index.ts            ← measureCell, fitCanvas, paintCellAt, drawCell, drawCellCached,
+│                         drawScreen, drawScreenDirty, createDomGlyphCache, re-exports
 ├─ scrollback.test.ts  ← Vitest — ring math, eviction, stable ids, wrap flags
 ├─ screen.test.ts      ← Vitest — viewport, scroll, wrap-on-write, setCols
 ├─ cursor.test.ts      ← Vitest — viewport translation, clamping, dirty bookkeeping
 ├─ reflow.test.ts      ← Vitest — shrink/grow, trim, cursor remap, dangling-wrap safety
+├─ lru.test.ts         ← Vitest — eviction, recency, capacity guards
+├─ glyph-cache.test.ts ← Vitest — key identity, hit/miss, eviction (injected renderer)
 └─ README.md           ← you are here
 ```
 
 Tests live alongside their source files (co-located). Run them with `npm test` (one-shot) or
-`npm run test:watch` (watch mode). 102 tests, ~25ms cold.
+`npm run test:watch` (watch mode). 124 tests, ~34ms cold.
 
-## Current state — steps 1–7 done
+## Current state — Phase 1 complete (steps 1–8)
 
 ### `Cell` (step 1)
 
@@ -235,6 +240,29 @@ literals stable.
 `reflow.isFullyDefault` was tightened: a cell with `attrs` set is *not* default and is not
 trimmed, so a styled trailing background (e.g., a status bar) survives reflow.
 
+### Glyph cache (step 8) — measure, then optimize
+
+`lru.ts` is a generic O(1) LRU built on a single `Map` (insertion order = recency; `get`
+re-inserts to refresh, `set` evicts the front when over cap). `glyph-cache.ts` composes it
+with `glyphKey(cell)` (`char \0 fg \0 bg \0 attrs`) and an *injected* renderer — so the cache
+logic is DOM-free and unit-testable.
+
+`createDomGlyphCache` (in index.ts, where `paintCellAt` lives) wires the real renderer: each
+unique cell is rasterized once into a DPR-scaled offscreen `<canvas>`; `drawCellCached` blits
+it with `drawImage`. **Trivial cells take a fast path** — a blank with no underline/inverse is
+a single `fillRect`, which beats `drawImage` of a solid rectangle — so the cache only holds
+cells where it pays off (styled glyphs).
+
+The cache is **toggleable at runtime** (`startRenderLoop`'s `getCache` option) and the demo has
+a **stress mode** (`forceFullRepaint`) that marks every row dirty each frame. The HUD's
+`avg paint` (an EMA in `LoopStats.avgPaintMs`) lets you read the before/after: turn stress on,
+toggle the cache, watch the number move. This is the disciplined order — *measure, then keep
+the optimization only if the numbers justify it.*
+
+> Honest caveat: at the steady-state dirty-row workload (one row repainted per blink), the
+> cache is irrelevant — paints are already sub-millisecond. Its value shows under full-screen
+> repaint churn (scroll-heavy or animation-heavy output), which is what stress mode simulates.
+
 ### Optimizations already in (because they're cheap and obvious)
 
 - `drawCell` **skips `fillText` for `' '`** — `fillRect` already painted the background.
@@ -242,12 +270,25 @@ trimmed, so a styled trailing background (e.g., a status bar) survives reflow.
 - The loop **skips the entire paint path** when `dirty.size === 0`. No `measureCell` call.
 - Scrolling is **window-offset math** in the Screen; no buffer movement in Scrollback.
 
-## Coming next (Phase 1, in order)
+## Phase 1 complete — exit criteria
 
-1. **Glyph cache.** Pre-render each `(char, fg, bg, attrs)` to an offscreen canvas; blit at
-   runtime. Measure speedup before and after — `drawCell` now sets `ctx.font` per glyph for
-   bold/italic, so a cache pays back even more than it would have at step 5.
-2. **Alt-screen.** Two scrollbacks + a swap flag, for vim/htop-style fullscreen apps.
+All four from the planning doc are met:
+
+- ✅ Paste a chunk of `htop`-style output and it renders correctly, colors and all (ANSI
+  parser + SGR + cursor motion + erase). Apps needing *replies* (cursor-position reports, mode
+  queries) aren't supported — that's a PTY-era concern.
+- ✅ Scrolling 10k lines stays smooth (ring buffer + dirty-row painting; HUD confirms).
+- ✅ Resizing reflows wrapped lines correctly (`reflow.ts`, cursor remap).
+- ✅ You can explain Williams's parser at a whiteboard — you wrote it (`ansi/parser.ts`).
+
+## Deferred (pick up when a real need shows)
+
+- **Alt-screen.** Two scrollbacks + a swap flag (`\x1b[?1049h/l`), for vim/htop-style
+  fullscreen apps. Deferred until the PTY (Phase 5) makes it observable.
+- **Wide chars / grapheme clusters.** CJK + emoji are multi-cell; needs `Intl.Segmenter` and a
+  width-aware Screen. Its own feature.
+- **OSC dispatch.** Window title, hyperlinks, clipboard — parser already swallows them safely.
+- **DSR / device reports.** Needed once a real interactive program is attached (Phase 5).
 
 ## Things NOT to use yet (intentional)
 
