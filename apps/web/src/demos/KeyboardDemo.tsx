@@ -3,38 +3,39 @@ import {
   InputLayer,
   Keymap,
   KeyResolver,
+  TextBuffer,
+  applyMotion,
+  describeConflict,
+  findConflicts,
+  isModifierCode,
   keysToString,
+  normalizeCode,
   tokensToNotation,
   type ActionId,
+  type Mods,
 } from '../input';
+import { OnScreenKeyboard } from './OnScreenKeyboard';
 
 /**
- * KeyboardDemo — Phase 2, step 2: keymap + trie + mode-aware FSM resolver.
- *
- * Live keys flow: InputLayer → KeyResolver.feed → fired actions / pending buffer. A timer
- * (owned here, not the resolver) fires staged actions on timeout. Type vim motions and watch:
- *   - single keys (hjkl/w/b/e/G) fire instantly,
- *   - prefixes (d, c, ci, g) hold the buffer pending,
- *   - dd/dw/ciw/gg complete the sequence,
- *   - <space> is *ambiguous* (bound, and a prefix of <space><space>): press once and wait to
- *     see it fire on timeout, or twice for the double-space action.
+ * KeyboardDemo — Phase 2 capstone (step 4): keymap + FSM + conflict detector + vim-motion
+ * sandbox + on-screen keyboard. Click to focus, then drive the cursor with real vim motions —
+ * the resolved *actions* move and edit the buffer, and the keyboard lights up the keys you hold.
  */
 
-/** Action id → human description (the host owns metadata; the resolver only emits ids). */
 const ACTIONS: Record<ActionId, string> = {
-  'cursor.left': 'move left',
-  'cursor.down': 'move down',
-  'cursor.up': 'move up',
-  'cursor.right': 'move right',
-  'word.next': 'next word',
-  'word.prev': 'previous word',
-  'word.end': 'end of word',
-  'line.top': 'go to first line',
-  'line.bottom': 'go to last line',
-  'delete.line': 'delete line',
-  'delete.word': 'delete word',
-  'change.innerWord': 'change inner word',
-  'space.single': 'single space (fires on timeout)',
+  'cursor.left': 'left (h)',
+  'cursor.down': 'down (j)',
+  'cursor.up': 'up (k)',
+  'cursor.right': 'right (l)',
+  'word.next': 'next word (w)',
+  'word.prev': 'prev word (b)',
+  'word.end': 'word end (e)',
+  'line.top': 'first line (gg)',
+  'line.bottom': 'last line (G)',
+  'delete.line': 'delete line (dd)',
+  'delete.word': 'delete word (dw)',
+  'change.innerWord': 'change inner word (ciw)',
+  'space.single': 'single space (timeout demo)',
   'space.double': 'double space',
 };
 
@@ -52,25 +53,53 @@ function buildKeymap(): Keymap {
     .bind('normal', 'dd', 'delete.line')
     .bind('normal', 'dw', 'delete.word')
     .bind('normal', 'ciw', 'change.innerWord')
-    // Deliberately ambiguous pair to demonstrate the timeout:
     .bind('normal', '<space>', 'space.single')
     .bind('normal', '<space><space>', 'space.double');
 }
 
+const SAMPLE = [
+  'the quick brown fox',
+  'jumps over the lazy dog',
+  'move with h j k l',
+  'words with w b e',
+  'edit with dd dw ciw',
+].join('\n');
+
 const TIMEOUT_MS = 700;
-const MAX_LOG = 18;
+const MAX_LOG = 14;
+const NO_MODS: Mods = { ctrl: false, alt: false, shift: false, meta: false };
 
 type LogEntry = { id: number; action: ActionId; viaTimeout: boolean };
+
+/** Render one buffer line, inverting the cell under the cursor. */
+function CursorLine({ line, col }: { line: string; col: number }) {
+  const ch = line[col] ?? ' ';
+  return (
+    <span className="whitespace-pre">
+      {line.slice(0, col)}
+      <span className="bg-violet-400 text-neutral-950">{ch === '' ? ' ' : ch}</span>
+      {line.slice(col + 1)}
+    </span>
+  );
+}
 
 export function KeyboardDemo() {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const keymap = useMemo(buildKeymap, []);
+  const bufferRef = useRef<TextBuffer | null>(null);
+  bufferRef.current ??= new TextBuffer(SAMPLE);
+  const buffer = bufferRef.current;
+
+  const [, setTick] = useState(0);
+  const bump = () => setTick((t) => t + 1);
+
   const [focused, setFocused] = useState(false);
   const [pending, setPending] = useState('');
   const [staged, setStaged] = useState<ActionId | null>(null);
   const [lastAction, setLastAction] = useState<ActionId | null>(null);
-  const [unbound, setUnbound] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [held, setHeld] = useState<Set<string>>(new Set());
+  const [mods, setMods] = useState<Mods>(NO_MODS);
   const idRef = useRef(0);
 
   useEffect(() => {
@@ -80,8 +109,11 @@ export function KeyboardDemo() {
     const resolver = new KeyResolver(keymap, 'normal', TIMEOUT_MS);
     let timer: number | null = null;
 
-    const fireActions = (actions: ActionId[], viaTimeout: boolean) => {
+    const runActions = (actions: ActionId[], viaTimeout: boolean) => {
       if (actions.length === 0) return;
+      let changed = false;
+      for (const a of actions) if (applyMotion(buffer, a)) changed = true;
+      if (changed) bump();
       setLog((prev) =>
         [...actions.map((a) => ({ id: idRef.current++, action: a, viaTimeout })).reverse(), ...prev].slice(0, MAX_LOG),
       );
@@ -98,17 +130,14 @@ export function KeyboardDemo() {
     const input = new InputLayer({
       onKey: (key) => {
         const res = resolver.feed(key);
-        fireActions(res.actions, false);
+        runActions(res.actions, false);
         setPending(keysToString(res.pending));
         setStaged(res.stagedAction);
-        if (res.unbound.length) setUnbound(keysToString(res.unbound));
-        else if (res.actions.length) setUnbound(null);
-
         clearTimer();
         if (res.pending.length > 0) {
           timer = window.setTimeout(() => {
             timer = null;
-            fireActions(resolver.flushTimeout(), true);
+            runActions(resolver.flushTimeout(), true);
             setPending('');
             setStaged(null);
           }, TIMEOUT_MS);
@@ -118,6 +147,23 @@ export function KeyboardDemo() {
     });
     input.attach(el);
 
+    // Raw listeners purely for the on-screen keyboard highlight (modifier-only presses too).
+    const onRawDown = (e: KeyboardEvent) => {
+      if (!isModifierCode(e.code)) {
+        setHeld((prev) => new Set(prev).add(normalizeCode(e.code)));
+      }
+      setMods({ ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey });
+    };
+    const onRawUp = (e: KeyboardEvent) => {
+      if (!isModifierCode(e.code)) {
+        setHeld((prev) => {
+          const next = new Set(prev);
+          next.delete(normalizeCode(e.code));
+          return next;
+        });
+      }
+      setMods({ ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey });
+    };
     const onFocus = () => setFocused(true);
     const onBlur = () => {
       setFocused(false);
@@ -125,17 +171,23 @@ export function KeyboardDemo() {
       resolver.reset();
       setPending('');
       setStaged(null);
+      setHeld(new Set());
+      setMods(NO_MODS);
     };
+    el.addEventListener('keydown', onRawDown);
+    el.addEventListener('keyup', onRawUp);
     el.addEventListener('focus', onFocus);
     el.addEventListener('blur', onBlur);
 
     return () => {
       clearTimer();
       input.detach();
+      el.removeEventListener('keydown', onRawDown);
+      el.removeEventListener('keyup', onRawUp);
       el.removeEventListener('focus', onFocus);
       el.removeEventListener('blur', onBlur);
     };
-  }, [keymap]);
+  }, [buffer, keymap]);
 
   const legend = useMemo(
     () =>
@@ -145,113 +197,106 @@ export function KeyboardDemo() {
         .sort((a, b) => a.notation.length - b.notation.length || a.notation.localeCompare(b.notation)),
     [keymap],
   );
+  const conflicts = useMemo(() => findConflicts(keymap, 'normal'), [keymap]);
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center gap-6 p-8 font-mono">
+    <main className="flex-1 flex flex-col items-center justify-center gap-5 p-6 font-mono">
       <header className="text-xs uppercase tracking-widest text-neutral-500">
-        phase 2 — keyboard &amp; input · step 2: keymap + trie + fsm
+        phase 2 — keyboard &amp; input · step 4: motion sandbox + on-screen keyboard
       </header>
 
+      {/* Focusable sandbox surface */}
       <div
         ref={surfaceRef}
         tabIndex={0}
         className={[
-          'w-[min(720px,92vw)] rounded-lg border p-6 outline-none transition-colors',
+          'w-[min(720px,92vw)] rounded-lg border p-4 outline-none transition-colors',
           focused
             ? 'border-violet-500 bg-neutral-900/70 shadow-lg shadow-violet-500/10'
             : 'border-neutral-800 bg-neutral-900/40',
         ].join(' ')}
       >
-        <div className="flex items-center justify-between text-[11px] text-neutral-500 mb-4">
+        <div className="flex items-center justify-between text-[11px] text-neutral-500 mb-3">
           <span>
             mode <span className="text-violet-300 border border-violet-700 rounded px-1">normal</span>
-          </span>
-          {focused ? (
-            <span className="text-violet-300">● capturing</span>
-          ) : (
-            <span>click to focus, then type vim motions</span>
-          )}
-        </div>
-
-        {/* Pending sequence buffer */}
-        <div className="mb-5">
-          <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">pending</div>
-          <div className="flex items-baseline gap-3">
-            <div className="text-3xl text-neutral-100 min-h-[2.5rem]">
-              {pending ? (
-                <span>
-                  {pending}
-                  <span className="text-violet-400 animate-pulse">▏</span>
-                </span>
-              ) : (
-                <span className="text-neutral-700">—</span>
-              )}
-            </div>
-            {staged && (
-              <span className="text-[11px] text-amber-400">
-                ⏳ timeout → {ACTIONS[staged] ?? staged}
+            {pending && (
+              <span className="ml-3 text-neutral-300">
+                pending <span className="text-violet-300">{pending}</span>
+                <span className="text-violet-400 animate-pulse">▏</span>
+                {staged && <span className="ml-2 text-amber-400">⏳ {ACTIONS[staged] ?? staged}</span>}
               </span>
             )}
-          </div>
+          </span>
+          {focused ? <span className="text-violet-300">● capturing</span> : <span>click to focus</span>}
         </div>
 
-        {/* Last resolved action */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">last action</div>
-            {lastAction ? (
-              <div>
-                <div className="text-emerald-300 text-sm">{lastAction}</div>
-                <div className="text-neutral-500 text-[11px]">{ACTIONS[lastAction] ?? ''}</div>
-              </div>
-            ) : (
-              <span className="text-neutral-700 text-sm">—</span>
-            )}
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">unbound</div>
-            <span className={unbound ? 'text-amber-400 text-sm' : 'text-neutral-700 text-sm'}>
-              {unbound ?? '—'}
-            </span>
-          </div>
-        </div>
-
-        {/* Fired-action log */}
-        <div className="text-[10px] uppercase tracking-widest text-neutral-600 mb-2">log</div>
-        <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
-          {log.length === 0 && <span className="text-neutral-700 text-xs">nothing fired yet</span>}
-          {log.map((e) => (
-            <span
-              key={e.id}
-              className={[
-                'px-1.5 py-0.5 rounded text-xs border',
-                e.viaTimeout
-                  ? 'border-amber-700/60 text-amber-300'
-                  : 'border-emerald-800 text-emerald-300 bg-emerald-900/20',
-              ].join(' ')}
-              title={e.viaTimeout ? 'fired on timeout' : 'fired on keypress'}
-            >
-              {e.action}
-            </span>
+        {/* The text buffer with a block cursor */}
+        <div className="text-sm leading-6 text-neutral-200">
+          {buffer.lines.map((line, r) => (
+            <div key={r} className="whitespace-pre">
+              {r === buffer.cursor.row ? (
+                <CursorLine line={line} col={buffer.cursor.col} />
+              ) : line === '' ? (
+                ' '
+              ) : (
+                line
+              )}
+            </div>
           ))}
         </div>
       </div>
 
+      <OnScreenKeyboard held={held} mods={mods} />
+
+      {/* Last action + conflicts */}
+      <div className="w-[min(720px,92vw)] flex flex-wrap gap-x-8 gap-y-2 text-[11px]">
+        <span>
+          <span className="text-neutral-500">last</span>{' '}
+          {lastAction ? (
+            <span className="text-emerald-300">{lastAction}</span>
+          ) : (
+            <span className="text-neutral-700">—</span>
+          )}
+        </span>
+        {conflicts.map((c, i) => (
+          <span key={i} className="text-amber-300">
+            ⚠ {describeConflict(c, TIMEOUT_MS)}
+          </span>
+        ))}
+      </div>
+
+      {/* Fired-action log */}
+      <div className="w-[min(720px,92vw)] flex flex-wrap gap-1.5 min-h-[1.5rem]">
+        {log.map((e) => (
+          <span
+            key={e.id}
+            className={[
+              'px-1.5 py-0.5 rounded text-[11px] border',
+              e.viaTimeout
+                ? 'border-amber-700/60 text-amber-300'
+                : 'border-emerald-800 text-emerald-300 bg-emerald-900/20',
+            ].join(' ')}
+          >
+            {e.action}
+          </span>
+        ))}
+      </div>
+
       {/* Keymap legend */}
-      <div className="w-[min(720px,92vw)] grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-[11px]">
+      <div className="w-[min(720px,92vw)] grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0.5 text-[11px]">
         {legend.map((b) => (
           <div key={b.notation} className="flex gap-2">
-            <span className="text-violet-300 w-16 shrink-0">{b.notation}</span>
+            <span className="text-violet-300 w-14 shrink-0">{b.notation}</span>
             <span className="text-neutral-500 truncate">{b.desc}</span>
           </div>
         ))}
       </div>
 
       <p className="text-xs text-neutral-500 max-w-xl text-center leading-relaxed">
-        named actions (not callbacks) resolved by a trie + FSM. prefixes hold pending; press{' '}
-        <code className="text-neutral-300">space</code> once and wait to watch the{' '}
-        <span className="text-amber-400">timeout</span> fire <code className="text-neutral-300">space.single</code>,
-        or twice for <code className="text-neutral-300">space.double</code>.
+        every keystroke is captured by physical position, resolved through a trie + FSM into a named
+        action, and applied to the buffer. the keyboard lights up what you hold; the detector warns
+        that <code className="text-neutral-300">space</code> is a prefix of{' '}
+        <code className="text-neutral-300">space space</code>.
       </p>
     </main>
   );

@@ -16,12 +16,19 @@ src/input/
 ├─ input-layer.ts   ← scoped DOM capture (events in → Keys out), browser-reserved guard
 ├─ keymap.ts        ← TrieNode, Keymap (bind/root/bindings), tokensToNotation
 ├─ resolver.ts      ← KeyResolver — the mode-aware FSM (feed / flushTimeout / setMode)
+├─ conflicts.ts     ← findConflicts / findAllConflicts / describeConflict (prefix detection)
+├─ text-buffer.ts   ← TextBuffer — the vim-motion sandbox (hjkl/w/b/e/gg/G/dd/dw/ciw) + applyMotion
 ├─ index.ts         ← re-exports
 ├─ key.test.ts      ← Vitest — normalization, serialize, parse, round-trips
 ├─ keymap.test.ts   ← Vitest — trie build, prefix sharing, bindings introspection
 ├─ resolver.test.ts ← Vitest — fire/prefix/ambiguous+timeout/unbound/dead-end/modes
+├─ conflicts.test.ts← Vitest — strict-prefix, single/nested/multi-mode conflicts, messages
+├─ text-buffer.test.ts ← Vitest — hjkl/word motions/edits, clamping, applyMotion dispatch
 └─ README.md        ← you are here
 ```
+
+(The on-screen keyboard overlay lives in `src/demos/OnScreenKeyboard.tsx` — it's presentational
+and reuses the `Key` token vocabulary from `key.ts`.)
 
 ## Current state — step 1 (done): the keyboard abstraction layer
 
@@ -81,18 +88,43 @@ Timeouts are **injected, not owned**: `feed` is synchronous and pure; the host a
 whenever `pending` is non-empty and calls `flushTimeout()` (→ fires the staged action, resets)
 when it elapses. This keeps the resolver deterministic and unit-testable with no fake clocks.
 
-## Coming next (Phase 2, in order)
+## Step 3 (done): conflict detection
 
-1. **Conflict detection.** Static pass over `bindings(mode)`: flag any binding that is a prefix
-   of another in the same mode (the shorter one only resolves after the timeout).
-2. **On-screen keyboard overlay + "what did I just do?" action toast.**
-3. **A vim-motion sandbox** to satisfy the exit criteria (hjkl/w/b/e/gg/G/dw/ciw).
+`findConflicts(keymap, mode)` is a pure pass over `bindings(mode)`: for each binding it finds
+every *longer* binding it's a strict token-prefix of. Each such pair is a **prefix conflict** —
+the shorter binding pays a `timeoutMs` latency tax because the resolver must wait to see if the
+longer sequence follows. `describeConflict(c, timeoutMs)` renders the latency cost in plain
+language; `findAllConflicts(keymap)` sweeps every mode.
 
-## Exit criteria for Phase 2
+The right answer is usually to *leave the prefix unbound* (vim leaves `g` unbound so `gg`/`gd`/…
+have no latency tax). The demo deliberately keeps one conflict (`<space>` vs `<space><space>`)
+so the detector has something to flag — and so the timeout behavior is demonstrable.
 
-- Run `hjkl`/`w`/`b`/`e`/`gg`/`G`/`dw`/`ciw` correctly in a sandbox text buffer.
-- The conflict detector flags a binding that is a prefix of another in the same mode.
-- The on-screen keyboard lights up correctly for every chord.
+> Not detected: duplicate-sequence rebinds (the trie overwrites on `bind`, so they can't coexist
+> to be found). Catching those would require hooking `bind()` — out of scope.
+
+## Step 4 (done): motion sandbox + on-screen keyboard
+
+`TextBuffer` is a tiny mutable document (lines + a normal-mode cursor) with vim motions
+(`hjkl`, `w`/`b`/`e` two-class word motion, `gg`/`G`) and edits (`dd`/`dw`/`ciw`). `applyMotion`
+dispatches a named action onto it (returns whether it was a buffer op). The demo wires the
+resolver's fired actions straight into the buffer, so motions actually move the cursor and edit
+text. The `OnScreenKeyboard` overlay highlights held key tokens + live modifier flags (driven
+by raw listeners in the demo; modifiers light even when pressed alone).
+
+## Phase 2 complete — exit criteria
+
+- ✅ Run `hjkl`/`w`/`b`/`e`/`gg`/`G`/`dw`/`ciw` correctly in a sandbox text buffer.
+- ✅ The conflict detector flags a binding that is a prefix of another in the same mode.
+- ✅ The on-screen keyboard lights up correctly for every chord.
+
+## Deferred (intentional)
+
+- **Insert/visual modes for real** — `ciw` deletes the inner word but doesn't enter insert (no
+  text-entry surface yet); `setMode` exists and the resolver is mode-aware, but only `normal` is
+  populated.
+- **Shifted-punctuation notation** (`:` = Shift+`;`) — write `<S-;>`; all phase motions are letters.
+- **Tutorial/practice/heatmap/analytics** modes from the planning doc — product features for later.
 
 ## Things NOT to do (per the planning doc)
 

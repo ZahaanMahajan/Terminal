@@ -9,8 +9,8 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `02 — Keyboard & Input Systems` (in progress; steps 1–2 of ~4 done). Phase 1 ✅ complete.
-**Repo state:** Phase 1 VT renderer complete; Phase 2 has input layer + keymap (trie) + mode-aware FSM resolver (named actions, prefix/ambiguous/timeout). Keyboard demo resolves live vim motions. 173 Vitest tests (73ms)
+**Phase:** `02 — Keyboard & Input Systems` ✅ **COMPLETE** (steps 1–4) → next: **Phase 3, Fake Shell**
+**Repo state:** Phases 1 (VT renderer) & 2 (keyboard) complete. Phase 2: input layer + keymap trie + FSM resolver + conflict detector + vim-motion sandbox + on-screen keyboard. 198 Vitest tests (69ms)
 **Last updated:** 2026-05-28
 
 ---
@@ -32,8 +32,8 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 | Phase | Build | Core concepts | Status |
 |-------|-------|---------------|--------|
 | 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
-| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | 🟨 in progress (steps 1–2/~4) |
-| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟦 |
+| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | ✅ done (steps 1–4) |
+| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟦 next |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | 🟦 (the heart) |
 | 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 |
 | 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟦 |
@@ -104,6 +104,22 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-28** — **Phase 2, step 4: motion sandbox + on-screen keyboard — PHASE 2 COMPLETE.**
+  New `text-buffer.ts` (`TextBuffer`: lines + normal-mode cursor; vim `hjkl`, two-class `w`/`b`/`e`
+  word motions, `gg`/`G`, and `dd`/`dw`/`ciw` edits; `applyMotion` dispatches a named action onto
+  it). New `demos/OnScreenKeyboard.tsx` (presentational QWERTY overlay; highlights held key
+  tokens + live modifier flags, reusing the step-1 `Key` vocabulary). KeyboardDemo rewritten to
+  wire resolver actions → buffer (cursor moves + edits visibly) and track held/mods via raw
+  listeners for the overlay. **+15 tests** (`text-buffer.test.ts`) for **198 total, 69ms**. Build
+  clean first try: 232 KB JS / 73 KB gzip. **Exit criteria all met.** Next: Phase 3, Fake Shell.
+- **2026-05-28** — **Phase 2, step 3: conflict detection.** New `conflicts.ts` — pure pass over
+  `Keymap.bindings(mode)`: `findConflicts` flags every binding that is a strict token-prefix of a
+  longer one (the shorter pays the `timeoutMs` latency tax), `findAllConflicts` sweeps all modes,
+  `describeConflict` renders the cost in plain language, `isStrictTokenPrefix` is the primitive.
+  KeyboardDemo gained a conflict panel that flags its deliberate `<space>`/`<space><space>`
+  ambiguity. **+10 tests** (`conflicts.test.ts`) for **183 total, 59ms**. Build clean first try:
+  227 KB JS / 71 KB gzip. Next: on-screen keyboard overlay + action toast + vim-motion sandbox
+  (step 4 → Phase 2 exit criteria).
 - **2026-05-28** — **Phase 2, step 2: keymap + trie + mode-aware FSM.** New `keymap.ts`
   (`TrieNode` + `Keymap`: bindings per mode stored as a trie keyed by `keyToken`; `bind`
   chainable, `bindings(mode)` introspection, `tokensToNotation`; actions are **named ids**, not
