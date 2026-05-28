@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 2,
+  "meta": { "name": "mini", "os": ["linux"] },
+  "shell": { "kind": "bash", "aliases": [{ "name": "ll", "value": "ls -la" }] }
+}

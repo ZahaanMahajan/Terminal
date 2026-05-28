@@ -13,11 +13,29 @@ PTY (Phase 5) with minimal change.
 
 ```
 src/shell/
-├─ tokenizer.ts       ← hand-written lexer: input → word/op tokens (quote/escape aware)
-├─ index.ts           ← re-exports
-├─ tokenizer.test.ts  ← 61 golden tests (input → exact tokens) + errors
-└─ README.md          ← you are here
+├─ tokenizer.ts        ← hand-written lexer: input → word/op tokens (quote/escape aware)
+├─ parser.ts           ← recursive-descent parser: tokens → Script AST
+├─ filesystem.ts       ← in-memory POSIX-ish tree (resolve/read/write/mkdir/list/…)
+├─ env.ts              ← variables + cwd + last exit code
+├─ expand.ts           ← $VAR / ${VAR} / $? / ~ expansion (literal vs expandable)
+├─ builtins.ts         ← the command set + RunContext/RunResult contract
+├─ executor.ts         ← walk the AST: pipelines, redirects, &&/||, ; → run()
+├─ index.ts            ← re-exports
+├─ tokenizer.test.ts   ← 61 golden tests (input → exact tokens) + errors
+├─ parser.test.ts      ← 23 tests (input → AST): structure, precedence, errors
+├─ line-editor.ts      ← readline-style line buffer (insert/kill/word/home/end)
+├─ history.ts          ← capped history + up/down draft-stash + reverse search
+├─ completion.ts       ← Tab completion (builtins + path, subdirs, cd→dirs)
+├─ prompt.ts           ← prompt segment model → ANSI + visible width
+├─ filesystem.test.ts  ← path resolution + node ops
+├─ expand.test.ts      ← $VAR/${VAR}/$?/~, literal-vs-expandable
+├─ executor.test.ts    ← end-to-end: pipelines, redirects, and-or, builtins, exit codes
+├─ line-editor.test.ts / history.test.ts / completion.test.ts / prompt.test.ts
+└─ README.md           ← you are here
 ```
+
+(The interactive REPL is `src/demos/ShellDemo.tsx` — it wires these modules to the Phase 1
+terminal and Phase 2 input layer.)
 
 ## Current state — step 1 (done): the tokenizer
 
@@ -50,19 +68,76 @@ proof it's handled.
 - **Comments (`#`), fd-redirection (`2>` as one token), line-continuation (`\\<newline>`)** —
   edge cases not needed for the exit criterion.
 
-## Coming next (Phase 3, in order)
+## Step 2 (done): recursive-descent parser
 
-1. **Parser** — recursive descent over the tokens → AST (commands, pipelines, redirections,
-   `;`/`&`/`&&`/`||`). Hand-written; no `nearley`/`pegjs`.
-2. **Fake filesystem + builtins + executor** — in-memory tree; `cd`/`ls`/`cat`/`echo`/`pwd`/
-   `mkdir`/`touch`/`rm`/`cp`/`mv`/`which`; `$VAR` expansion; pipelines wiring stdout→stdin.
-3. **Line editor + history + completion + prompt REPL** — readline bindings via the Phase 2
-   input layer, history ring buffer with reverse-search, pluggable completion, a prompt segment
-   model rendered to ANSI, all feeding the Phase 1 terminal.
+`parse(input)` tokenizes (if given a string) and builds a `Script` AST. One method per grammar
+production — the textbook recursive-descent shape:
 
-## Exit criteria for Phase 3
+```
+script   := (andOr (';' | '&')?)*       Statement[] (background flag per statement)
+andOr    := pipeline (('&&' | '||') pipeline)*
+pipeline := command ('|' command)*
+command  := (word | redirect)+          redirect-only (`> f`) allowed
+redirect := ('>' | '>>' | '<') word
+```
 
-- `echo "hello $USER" | tr a-z A-Z` parses correctly (even if `tr` is a stub).
-- Path completion works in subdirectories.
-- History + reverse search behave like bash for the basics.
-- The tokenizer has ≥ 50 golden tests. ✅ (61)
+Operator precedence falls out of the nesting: `|` binds tighter than `&&`/`||`, which bind
+tighter than `;`/`&`. A `Word` is the tokenizer's `WordPart[]` carried verbatim, so quoting
+survives for the expander. `ShellError` on a leading/dangling operator, a redirect with no
+filename, or a separator with nothing before it.
+
+## Step 3 (done): filesystem + expansion + builtins + executor
+
+- **`FileSystem`** — an in-memory dir/file tree; `resolvePath` normalizes `.`/`..` against a
+  cwd; `FileSystem.from({...})` seeds a tree for tests/demos.
+- **`Env`** — variables, cwd, and `lastExit` (`$?`).
+- **`expand`** — `expandWord` walks a word's parts: `literal` verbatim, `expandable` scanned for
+  `$NAME`/`${NAME}`/`$?`; leading bare `~` → `$HOME`. *This is where the tokenizer's tagging
+  pays off.*
+- **builtins** — `echo`/`pwd`/`cd`/`ls`/`cat`/`mkdir`/`touch`/`rm`/`cp`/`mv`/`which` plus
+  `true`/`false` (for `&&`/`||`) and stdin filters `tr`/`grep`/`wc`. Each is
+  `(ctx) => { stdout, stderr, code }` — the same contract a real PTY-backed command has, so the
+  executor won't change when fake exec → real exec (Phase 5).
+- **`executor`** — `execCommand` (expand argv, apply redirects, run builtin) → `execPipeline`
+  (thread stdout→stdin) → `execAndOr` (`&&`/`||` short-circuit) → `execScript` (`;` sequence).
+  `run(input, env, fs)` parses + executes; a `ShellError` becomes a printable line.
+
+The exit criterion `echo "hello $USER" | tr a-z A-Z` runs end-to-end (tested).
+
+### Known simplifications (documented)
+
+- No word-splitting after expansion — one `Word` = one argument.
+- Tilde doesn't distinguish bare vs double-quoted (`"~"` expands; `'~'` doesn't).
+- Assignments are only the pure form (`X=1`); `VAR=v cmd` prefix scoping is deferred.
+- `&` runs synchronously (no real job control); `cp`/`mv` are 2-arg; `tr` handles `a-z` ranges.
+
+## Step 4 (done): line editor + history + completion + prompt + REPL
+
+- **`LineEditor`** — a mutable line + cursor with readline ops (insert, backspace/del,
+  left/right/home/end, C-w word-kill, C-k/C-u kills).
+- **`History`** — capped, dedup-consecutive; Up/Down navigate (stashing the live draft);
+  `reverseSearch` powers C-r.
+- **`complete`** — first token → builtins; later tokens → filesystem paths (subdirectory split
+  on `/`); `cd` offers only directories. Inserts the unique extension or the common prefix.
+- **`renderPrompt`** — cwd (home → `~`, cyan) + a `❯` (green/red by exit code) → ANSI + the
+  *visible* width so the REPL can position the cursor with CHA.
+
+**The REPL** (`demos/ShellDemo.tsx`) is where the phases meet: keys flow through the Phase 2
+`InputLayer` + `KeyResolver` (control keys → named editor actions; unbound printables insert via
+`event.key`); a submitted line runs through `run()`; the shell emits ANSI to redraw the input
+line (`\r` + prompt + text + `\x1b[K` + CHA), which the Phase 1 renderer paints. A focused
+terminal captures Ctrl-W/R/L (custom `reservedGuard`), like a real terminal.
+
+## Phase 3 complete — exit criteria
+
+- ✅ `echo "hello $USER" | tr a-z A-Z` runs (tested end-to-end in `executor.test.ts`).
+- ✅ Path completion works in subdirectories (`completion.test.ts`).
+- ✅ History + reverse search behave like bash for the basics (`history.test.ts`).
+- ✅ The tokenizer has ≥ 50 golden tests (61).
+
+## Deferred (intentional)
+
+Single-line input only (no wrap re-draw); no word-splitting after expansion; tilde doesn't
+distinguish quoted/bare; pure assignments only; `&` is synchronous; no IndexedDB persistence
+(the FS is in-memory per session). Real process I/O arrives with the **PTY in Phase 5** — and
+the builtin contract (bytes in → bytes out + code) is shaped so the executor won't change.

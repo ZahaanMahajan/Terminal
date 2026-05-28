@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 2,
+  "meta": { "name": "minimal", "os": ["macos"] },
+  "shell": { "kind": "zsh" }
+}

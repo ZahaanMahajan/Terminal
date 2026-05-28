@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 2,
+  "meta": { "name": "modular", "os": ["macos"] },
+  "shell": { "kind": "zsh", "aliases": [{ "name": "v", "value": "nvim" }] },
+  "modules": ["git-aliases", "fzf"]
+}

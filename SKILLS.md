@@ -9,9 +9,9 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `03 — Fake Shell` (in progress; step 1 of ~4 done). Phases 1 & 2 ✅ complete.
-**Repo state:** Phases 1 (VT renderer) & 2 (keyboard) complete. Phase 3 has a hand-written, quote/escape-aware tokenizer (word parts tagged literal/expandable). 259 Vitest tests (87ms)
-**Last updated:** 2026-05-28
+**Phase:** `04 — Config Compiler` ✅ **COMPLETE** (steps 1–4 — the heart) → next: **Phase 5, Real PTY Integration**
+**Repo state:** Phases 1–4 complete. 4 demo tabs (Terminal/Keyboard/Shell/Compiler). Compiler: AST(zod)+migrations+semantics+modules → IR → dotfiles, with a live studio. 420 Vitest tests (195ms)
+**Last updated:** 2026-05-29
 
 ---
 
@@ -33,9 +33,9 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 |-------|-------|---------------|--------|
 | 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
 | 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | ✅ done (steps 1–4) |
-| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟨 in progress (step 1/~4) |
-| 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | 🟦 (the heart) |
-| 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 |
+| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | ✅ done (steps 1–4) |
+| 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | ✅ done (steps 1–4 — the heart) |
+| 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 next |
 | 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟦 |
 
 ---
@@ -45,6 +45,7 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 | Layer | Choice | Why |
 |-------|--------|-----|
 | Frontend | **React + TypeScript + Vite + Tailwind** | Minimum scaffolding around your own code |
+| Schema/validation | **zod** (Phase 4) | doc-endorsed; one declaration = runtime validator + static type |
 | Renderer | **Canvas 2D API**, hand-written | Learn the renderer by being the renderer |
 | State | React state + small contexts | Defer Zustand/Redux until pain is real |
 | Backend (Phase 5+) | **Node or Go, one binary** | Monolith-first; write the harder of the two for you |
@@ -104,6 +105,87 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-29** — **Phase 4, step 4: live studio — PHASE 4 COMPLETE.** New `demos/StudioDemo.tsx`
+  (4th tab, Compiler P4): a visual config builder over `compileRaw` — toggle shell/aliases/env/
+  plugins/options/prompt-segments/modules; `useMemo` recompiles on every change and renders the
+  generated dotfiles (comment-tinted), diagnostics (with paths), binary `requires`, and a
+  compile-time readout (sub-ms, << the 50ms budget). App got a 4th tab. **No new tests** (UI
+  glue; the compiler's 57 tests cover the logic) → 420 total. **Bundle jumped 251→331 KB JS /
+  79→101 KB gzip** — zod now ships (the cost of the runtime validator, app-wired for the first
+  time); 143 modules. **Exit criteria all met.** Next: Phase 5, Real PTY Integration.
+- **2026-05-29** — **Phase 4, step 3: semantic validation + modules.** `semantic.ts`:
+  `validateSemantics(setup)` → diagnostics beyond shape (errors: empty/invalid env+alias names;
+  warnings: duplicate alias/env/plugin, unknown plugin via `KNOWN_PLUGINS`, prompt-without-
+  `character`). `modules.ts`: `Module = (setup)=>setup` pure transforms with idempotent merge
+  helpers + `requires` (binary deps); registry (git-aliases/fzf/eza/prompt-rust); `applyModules`
+  folds `setup.modules`, accumulating requires + warning on unknowns. AST gained `modules: []`
+  (additive default — golden fixtures unchanged). `compile` now semantic-checks the user setup,
+  expands modules, and returns `{ artifacts, diagnostics, requires }`. +`with-modules` golden.
+  **57 compiler tests (≥50 criterion met); +23 → 420 total.** Build unchanged (not app-wired).
+  Next: studio demo tab (step 4).
+- **2026-05-28** — **Phase 4, step 2: IR + lowering + emit + golden tests.** The full
+  `Setup → IR → text` pipeline. `ir.ts`: `ShellIR` (ordered `ShellStmt[]`) shared by zsh/bash +
+  `StarshipIR`. `lower.ts`: `lowerShell` orders sections (env → options → plugins → aliases →
+  prompt-init) — *the lowering owns ordering*; `lowerPrompt` builds the starship format string.
+  `emit.ts`: pure + deterministic; exports double-quoted (`$` kept), aliases single-quoted
+  (`'\''` trick), `setopt`/`shopt -s` + plugin path/prompt-init branch on shell. `compile.ts`:
+  `compile(setup)` → artifacts (.zshrc/.bashrc + optional starship.toml); `compileRaw` parses
+  first. **Golden fixtures** in `__fixtures__/` (`*.ast.json` → expected files) read via node fs,
+  matched byte-for-byte. Build fix: `tsconfig` pins `types: [vite/client]`, so the golden test
+  needs `/// <reference types="node" />` for `node:fs`. **+23 tests** (397 total). Not app-wired
+  yet (bundle unchanged). Next: semantic validation + modules (step 3), then studio demo (step 4).
+- **2026-05-28** — **Phase 4, step 1: Config AST + validation + migrations.** New
+  `src/compiler/` (kept in `apps/web/src/`, not `packages/` — single consumer, defer the
+  workspace split until the Phase 6 CLI). Added `zod@4`. `ast.ts`: `SetupSchema` (zod) → `Setup`
+  (`z.infer`) — one declaration is both runtime validator and static type. "Start tiny": zsh/bash
+  shell (aliases/env/plugins/options) + optional starship prompt (segment list) = 3 emitter
+  targets. `validate.ts`: `parseSetup` migrates then `safeParse`s → typed `Setup` (array defaults
+  filled) or `Diagnostic[]` with dotted paths (`shell.kind`, `prompt.segments.1`, `(root)`).
+  `migrations.ts`: `SCHEMA_VERSION=2` + forward chain; concrete v1→v2 migration wraps `meta.os`
+  string → array. `diagnostics.ts`: shared `{level,path,message}`. **+11 tests** (374 total).
+  Build unchanged (not app-wired). Next: IR + lowering + emitters + golden tests (step 2).
+- **2026-05-28** — **`clear` command.** Added a `clear` builtin that emits `\x1b[2J\x1b[H` (like
+  real `clear` writing the terminfo clear capability) — the executor returns it, the terminal
+  interprets it, no REPL special-casing. Also hardened submit's "trailing newline" guard to
+  check the terminal cursor column (`cursor.col !== 0`) instead of the output string, so `clear`
+  (homed cursor, no `\n`) doesn't push the prompt down a line. +1 test (363 total).
+- **2026-05-28** — **Fix: shell prompt/output offset (ONLCR).** Command output ends in `\n`, but
+  the VT interpreter keeps LF column-preserving (correct for a raw terminal), so each output
+  line and the next prompt drifted to the previous line's column. Real systems translate `\n` →
+  `\r\n` at the tty layer (`onlcr`); the REPL is the tty, so `ShellDemo.feedT` now does it
+  (`/\r?\n/g` → `\r\n`). Executor stays terminal-agnostic; VT interpreter stays raw.
+- **2026-05-28** — **Phase 3, step 4: line editor + history + completion + prompt + REPL —
+  PHASE 3 COMPLETE.** Four pure modules: `line-editor.ts` (readline ops), `history.ts` (capped +
+  up/down draft-stash + reverseSearch), `completion.ts` (builtins for token 0, path for args
+  with `dir/base` subdir split, `cd`→dirs only, common-prefix insert), `prompt.ts` (cwd→`~` +
+  exit-colored `❯` → ANSI + visible width). New `demos/ShellDemo.tsx` REPL wires all three
+  phases: `InputLayer`+`KeyResolver` (control keys → named actions, printables inserted via
+  `event.key`) → `run()` → ANSI line-redraw (`\r`+prompt+text+`\x1b[K`+CHA) painted by the
+  renderer. Added `reservedGuard` option to `InputLayer` so a focused terminal captures
+  Ctrl-W/R/L. App got a third tab (Shell P3). **+32 tests** (line-editor 8, history 9,
+  completion 10, prompt 5) for **362 total, 144ms**. Build: 251 KB JS / 79 KB gzip (shell now
+  ships). **Exit criteria all met.** Next: Phase 4, the Config Compiler.
+- **2026-05-28** — **Phase 3, step 3: fake FS + expansion + builtins + executor.** Five new
+  modules: `filesystem.ts` (in-memory dir/file tree, `resolvePath` with `.`/`..`,
+  `FileSystem.from` seed), `env.ts` (vars + cwd + `lastExit`/`$?`), `expand.ts` (`$VAR`/`${VAR}`/
+  `$?`/`~`; literal parts verbatim, expandable parts scanned — the tokenizer's tagging paying
+  off), `builtins.ts` (echo/pwd/cd/ls/cat/mkdir/touch/rm/cp/mv/which + true/false + tr/grep/wc;
+  each `(ctx)=>{stdout,stderr,code}` — same contract a real PTY command will have), `executor.ts`
+  (execCommand→execPipeline→execAndOr→execScript; redirects, stdout→stdin piping, `&&`/`||`
+  short-circuit, `;`; `run()` turns ShellError into a printable line). **`echo "hello $USER" | tr
+  a-z A-Z` → `HELLO WORLD` runs end-to-end (tested).** Caught + documented a tilde/quoting
+  simplification (2-kind model can't tell bare from double-quoted). **+48 tests** (filesystem 11,
+  expand 12, executor 25) for **330 total, 92ms**. Build unchanged (not app-wired yet). Next:
+  line editor + history + completion + prompt REPL (step 4 → interactive shell demo).
+- **2026-05-28** — **Phase 3, step 2: recursive-descent parser.** New `src/shell/parser.ts` —
+  hand-written, one method per grammar production (script → andOr → pipeline → command →
+  redirect). Precedence from nesting: `|` > `&&`/`||` > `;`/`&`. AST nodes: `Script`/`Statement`
+  (background flag) / `AndOr` (pipelines + connectors) / `Pipeline` / `Command` (words +
+  redirects). `Word` = tokenizer's `WordPart[]` carried verbatim (quoting survives). Redirect-only
+  commands (`> f`) allowed; `ShellError` on leading/dangling operators, missing redirect target,
+  doubled separators. **+23 tests** (`parser.test.ts`: structure, precedence, quoting preserved,
+  exit-criterion line, 6 error cases) for **282 total, 92ms**. Build unchanged (not app-wired).
+  Next: fake FS + builtins + executor (step 3).
 - **2026-05-28** — **Phase 3, step 1: shell tokenizer.** New `src/shell/tokenizer.ts` — a
   hand-written state-machine lexer (NORMAL / single-quote / double-quote), NOT `String.split`.
   Emits `word` tokens whose **parts** are tagged `literal` (single-quoted/escaped — no expansion)

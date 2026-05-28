@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { TerminalDemo } from './demos/TerminalDemo';
 import { KeyboardDemo } from './demos/KeyboardDemo';
+import { ShellDemo } from './demos/ShellDemo';
+import { StudioDemo } from './demos/StudioDemo';
 
 /**
  * App — a thin shell that switches between the per-phase demos.
@@ -14,6 +16,8 @@ type Tab = { id: string; label: string; render: () => ReactNode };
 const TABS: Tab[] = [
   { id: 'terminal', label: 'Terminal (P1)', render: () => <TerminalDemo /> },
   { id: 'keyboard', label: 'Keyboard (P2)', render: () => <KeyboardDemo /> },
+  { id: 'shell', label: 'Shell (P3)', render: () => <ShellDemo /> },
+  { id: 'compiler', label: 'Compiler (P4)', render: () => <StudioDemo /> },
 ];
 
 export default function App() {

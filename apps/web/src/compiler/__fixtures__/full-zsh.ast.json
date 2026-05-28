@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "meta": { "name": "rust", "os": ["macos", "linux"] },
+  "shell": {
+    "kind": "zsh",
+    "env": [
+      { "name": "EDITOR", "value": "nvim" },
+      { "name": "PATH", "value": "$HOME/bin:$PATH" }
+    ],
+    "options": ["AUTO_CD", "HIST_IGNORE_DUPS"],
+    "plugins": ["zsh-autosuggestions", "fast-syntax-highlighting"],
+    "aliases": [
+      { "name": "gs", "value": "git status" },
+      { "name": "ll", "value": "eza -la --git" }
+    ]
+  },
+  "prompt": { "engine": "starship", "segments": ["directory", "git_branch", "rust", "character"] }
+}

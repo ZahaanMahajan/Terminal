@@ -24,8 +24,14 @@ export type InputLayerOptions = {
   onKey: KeyHandler;
   /** Optional keyup hook (e.g. to un-highlight an on-screen key). */
   onKeyUp?: (key: Key, e: KeyboardEvent) => void;
-  /** preventDefault handled keys? Default true (browser-reserved combos are always exempt). */
+  /** preventDefault handled keys? Default true (reserved combos are always exempt). */
   preventDefaultWhenHandled?: boolean;
+  /**
+   * Which combos to NEVER preventDefault (so the browser keeps acting on them). Default is
+   * `isBrowserReserved`. A focused terminal emulator may pass a narrower guard (e.g. meta-only)
+   * so it can capture Ctrl-W / Ctrl-R / Ctrl-L the way a real terminal does.
+   */
+  reservedGuard?: (key: Key) => boolean;
 };
 
 /** Browser-reserved combos we must never `preventDefault` (would trap the user). */
@@ -61,11 +67,8 @@ export class InputLayer {
     if (isModifierCode(e.code)) return;
     const key = keyFromEvent(e);
     const handled = this.opts.onKey(key, e) === true;
-    if (
-      handled &&
-      (this.opts.preventDefaultWhenHandled ?? true) &&
-      !isBrowserReserved(key)
-    ) {
+    const reserved = (this.opts.reservedGuard ?? isBrowserReserved)(key);
+    if (handled && (this.opts.preventDefaultWhenHandled ?? true) && !reserved) {
       e.preventDefault();
     }
   };
