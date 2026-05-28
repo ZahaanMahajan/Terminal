@@ -9,8 +9,8 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `02 — Keyboard & Input Systems` (in progress; step 1 of ~4 done). Phase 1 ✅ complete.
-**Repo state:** Phase 1 VT renderer complete; Phase 2 input layer landed (Key model + notation parser + scoped DOM capture). App is now a tab switcher (Terminal P1 / Keyboard P2). 150 Vitest tests (50ms)
+**Phase:** `02 — Keyboard & Input Systems` (in progress; steps 1–2 of ~4 done). Phase 1 ✅ complete.
+**Repo state:** Phase 1 VT renderer complete; Phase 2 has input layer + keymap (trie) + mode-aware FSM resolver (named actions, prefix/ambiguous/timeout). Keyboard demo resolves live vim motions. 173 Vitest tests (73ms)
 **Last updated:** 2026-05-28
 
 ---
@@ -32,7 +32,7 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 | Phase | Build | Core concepts | Status |
 |-------|-------|---------------|--------|
 | 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
-| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | 🟨 in progress (step 1/~4) |
+| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | 🟨 in progress (steps 1–2/~4) |
 | 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟦 |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | 🟦 (the heart) |
 | 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 |
@@ -104,6 +104,16 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-28** — **Phase 2, step 2: keymap + trie + mode-aware FSM.** New `keymap.ts`
+  (`TrieNode` + `Keymap`: bindings per mode stored as a trie keyed by `keyToken`; `bind`
+  chainable, `bindings(mode)` introspection, `tokensToNotation`; actions are **named ids**, not
+  callbacks). New `resolver.ts` (`KeyResolver`: `feed(key)` → `FeedResult` with fire / await
+  (prefix or ambiguous+`stagedAction`) / unbound / dead-end-discard outcomes; timeouts are
+  *injected* — host arms a timer on non-empty `pending` and calls `flushTimeout()`; pure +
+  deterministic). KeyboardDemo rewritten into a resolver playground: live pending buffer, fired
+  actions log, the `<space>`/`<space><space>` ambiguity demonstrating timeout-fire, and a keymap
+  legend. **+23 tests** (10 keymap + 13 resolver) for **173 total, 73ms**. Build: 226 KB JS /
+  71 KB gzip. Next: conflict detection (step 3).
 - **2026-05-28** — **Phase 2, step 1: input layer + Key tokens.** New `src/input/`: `key.ts`
   (the keyboard abstraction layer — `Key = {key, mods}` from `event.code` not `event.key` for
   layout independence; `normalizeCode`, `keyFromEvent`, `keyToken`/`keyToString` canonical

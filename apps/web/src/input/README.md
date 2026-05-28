@@ -12,11 +12,15 @@ detection and an on-screen visualizer. Framework-free except the thin DOM captur
 
 ```
 src/input/
-├─ key.ts          ← Key model, normalizeCode, keyFromEvent, keyToString/keyToken, parseKeys
-├─ input-layer.ts  ← scoped DOM capture (events in → Keys out), browser-reserved guard
-├─ index.ts        ← re-exports
-├─ key.test.ts     ← Vitest — normalization, serialize, parse, round-trips
-└─ README.md       ← you are here
+├─ key.ts           ← Key model, normalizeCode, keyFromEvent, keyToString/keyToken, parseKeys
+├─ input-layer.ts   ← scoped DOM capture (events in → Keys out), browser-reserved guard
+├─ keymap.ts        ← TrieNode, Keymap (bind/root/bindings), tokensToNotation
+├─ resolver.ts      ← KeyResolver — the mode-aware FSM (feed / flushTimeout / setMode)
+├─ index.ts         ← re-exports
+├─ key.test.ts      ← Vitest — normalization, serialize, parse, round-trips
+├─ keymap.test.ts   ← Vitest — trie build, prefix sharing, bindings introspection
+├─ resolver.test.ts ← Vitest — fire/prefix/ambiguous+timeout/unbound/dead-end/modes
+└─ README.md        ← you are here
 ```
 
 ## Current state — step 1 (done): the keyboard abstraction layer
@@ -56,15 +60,33 @@ drops standalone modifier presses, converts each event to a `Key`, and calls `on
 `preventDefault`s a handled key **except** browser-reserved combos (`isBrowserReserved`:
 Cmd+anything, Ctrl+W/T/N/Q/R/L) — we never trap the user's tab-close / reload.
 
+## Step 2 (done): keymap + trie + mode-aware FSM
+
+**`Keymap`** stores bindings per mode as a **trie** keyed by `keyToken(key)`. Each node may
+carry an action and/or children. A node with *both* is a prefix binding (the ambiguity case).
+`bind(mode, "dw", "delete.word")` is chainable; `bindings(mode)` walks the trie for
+introspection (and feeds the conflict detector in step 3).
+
+**`KeyResolver`** is the FSM. `feed(key)` walks one trie step and returns a `FeedResult`:
+
+| Outcome | When | Result |
+|---------|------|--------|
+| **fire** | node has an action and no children | `actions:[id]`, buffer reset |
+| **await (prefix)** | node is a pure prefix | `pending:[…]` |
+| **await (ambiguous)** | node has an action *and* children | `pending:[…]`, `awaitingTimeout:true`, `stagedAction:id` |
+| **unbound** | first key matches nothing | `unbound:[key]` |
+| **discard** | mid-sequence dead-end | drop buffer; fire any staged action, then re-process the key |
+
+Timeouts are **injected, not owned**: `feed` is synchronous and pure; the host arms a timer
+whenever `pending` is non-empty and calls `flushTimeout()` (→ fires the staged action, resets)
+when it elapses. This keeps the resolver deterministic and unit-testable with no fake clocks.
+
 ## Coming next (Phase 2, in order)
 
-1. **Keymap + trie + mode-aware FSM.** `Keymap` maps key *sequences* → named action ids. A
-   resolver FSM holds a pending buffer, matches against a trie, and fires / awaits (with a
-   `timeoutMs`) / rejects. Modes: normal, insert, visual, prefix-pending.
-2. **Conflict detection.** Static pass: flag any binding that is a prefix of another in the
-   same mode (the shorter one incurs the timeout).
-3. **On-screen keyboard overlay + "what did I just do?" action toast.**
-4. **A vim-motion sandbox** to satisfy the exit criteria (hjkl/w/b/e/gg/G/dw/ciw).
+1. **Conflict detection.** Static pass over `bindings(mode)`: flag any binding that is a prefix
+   of another in the same mode (the shorter one only resolves after the timeout).
+2. **On-screen keyboard overlay + "what did I just do?" action toast.**
+3. **A vim-motion sandbox** to satisfy the exit criteria (hjkl/w/b/e/gg/G/dw/ciw).
 
 ## Exit criteria for Phase 2
 

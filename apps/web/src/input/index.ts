@@ -10,3 +10,5 @@
 
 export * from './key';
 export * from './input-layer';
+export * from './keymap';
+export * from './resolver';
