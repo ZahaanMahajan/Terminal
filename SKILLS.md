@@ -9,8 +9,8 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `02 — Keyboard & Input Systems` ✅ **COMPLETE** (steps 1–4) → next: **Phase 3, Fake Shell**
-**Repo state:** Phases 1 (VT renderer) & 2 (keyboard) complete. Phase 2: input layer + keymap trie + FSM resolver + conflict detector + vim-motion sandbox + on-screen keyboard. 198 Vitest tests (69ms)
+**Phase:** `03 — Fake Shell` (in progress; step 1 of ~4 done). Phases 1 & 2 ✅ complete.
+**Repo state:** Phases 1 (VT renderer) & 2 (keyboard) complete. Phase 3 has a hand-written, quote/escape-aware tokenizer (word parts tagged literal/expandable). 259 Vitest tests (87ms)
 **Last updated:** 2026-05-28
 
 ---
@@ -33,7 +33,7 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 |-------|-------|---------------|--------|
 | 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
 | 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | ✅ done (steps 1–4) |
-| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟦 next |
+| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | 🟨 in progress (step 1/~4) |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | 🟦 (the heart) |
 | 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 |
 | 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟦 |
@@ -104,6 +104,15 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-28** — **Phase 3, step 1: shell tokenizer.** New `src/shell/tokenizer.ts` — a
+  hand-written state-machine lexer (NORMAL / single-quote / double-quote), NOT `String.split`.
+  Emits `word` tokens whose **parts** are tagged `literal` (single-quoted/escaped — no expansion)
+  vs `expandable` (bare/double-quoted — `$VAR` expands later), so quoting survives for the
+  expander; adjacent quotes concatenate into one word; empty quotes yield an empty-arg word.
+  `op` tokens: `|`/`||`/`&`/`&&`/`;`/`<`/`>`/`>>` (greedy). `ShellError` on unterminated quotes;
+  `wordText` reads raw value. **61 golden tests** (table via `it.each` + error/wordText cases) —
+  over the doc's "≥50". **259 total, 87ms.** Build unchanged (231 KB; not wired to the app yet).
+  Next: recursive-descent parser (step 2).
 - **2026-05-28** — **Phase 2, step 4: motion sandbox + on-screen keyboard — PHASE 2 COMPLETE.**
   New `text-buffer.ts` (`TextBuffer`: lines + normal-mode cursor; vim `hjkl`, two-class `w`/`b`/`e`
   word motions, `gg`/`G`, and `dd`/`dw`/`ciw` edits; `applyMotion` dispatches a named action onto
