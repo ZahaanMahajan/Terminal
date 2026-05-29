@@ -9,8 +9,8 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `04 — Config Compiler` ✅ **COMPLETE** (steps 1–4 — the heart) → next: **Phase 5, Real PTY Integration**
-**Repo state:** Phases 1–4 complete. 4 demo tabs (Terminal/Keyboard/Shell/Compiler). Compiler: AST(zod)+migrations+semantics+modules → IR → dotfiles, with a live studio. 420 Vitest tests (195ms)
+**Phase:** `06 — Persistence + Tiny Backend` (in progress; step 1 of ~3 done). Phases 1–5 ✅ complete.
+**Repo state:** Phases 1–5 done. Phase 6: `services/api/` scaffolded — Node + better-sqlite3, app-owned forward migrations (`migrations/001_init.sql`: users/sessions/setups/setup_versions), `GET /health` on 127.0.0.1:7683. Web app: 439 Vitest tests. API: 7 `node:test` migration tests + verified end-to-end (boot→migrate→health, FK + json_valid enforced). Auth (OAuth+PKCE) next.
 **Last updated:** 2026-05-29
 
 ---
@@ -35,8 +35,8 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 | 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | ✅ done (steps 1–4) |
 | 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | ✅ done (steps 1–4) |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | ✅ done (steps 1–4 — the heart) |
-| 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | 🟦 next |
-| 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟦 |
+| 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | ✅ done (steps 1–3) |
+| 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟨 in progress (step 1/~3) |
 
 ---
 
@@ -105,6 +105,61 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-29** — **Phase 6, step 1: backend foundation — SQLite + app-owned migrations.** New
+  `services/api/` (Node + TypeScript, chosen over Go), its own package, separate from the PTY
+  service (which is RCE-by-design; this one holds sessions/data). **No ORM, no framework, no
+  migration library** — the point of waiting until Phase 6. `migrations/001_init.sql`: `users`
+  (keyed on stable `github_id`), `sessions` (cookie-value id + expiry, FK-cascade), `setups`
+  (`ast` JSON with `CHECK json_valid`), `setup_versions` (immutable snapshots, `(setup_id,version)`
+  unique); WAL + `foreign_keys=ON`. `src/migrate.ts` is the **pure** planning half
+  (`isValidMigrationName`, `pendingMigrations` — zero-padded `NNN_name.sql` so lexicographic sort
+  == numeric order), `src/db.ts` the glue (`openDb`, `migrate` — diff vs `schema_migrations` it
+  creates itself, apply each in a transaction). `src/server.ts`: `GET /health` on 127.0.0.1:7683.
+  Tests via **Node's built-in `node:test`** (no Vitest dep) — 7 pure tests pass; smoke-verified
+  end-to-end (fresh DB → 5 tables, second migrate is a no-op, FK + json_valid reject bad rows,
+  `/health` → `{ok,migrations:1}`). `npm test` = `node --import tsx --test`. Next: step 2, auth.
+- **2026-05-29** — **Fix: PTY backend `posix_spawnp failed` on macOS.** node-pty 1.1.0 ships its
+  prebuilt `spawn-helper` with mode `0644` (no `+x`); node-pty `posix_spawn`s that helper to set
+  up the slave TTY, so every `pty.spawn` died. Added `services/pty/scripts/fix-perms.mjs` (chmods
+  `+x` on every `prebuilds/*/spawn-helper`, idempotent, cross-platform no-op on Windows) wired to
+  `postinstall` + `prestart` + `predev`. Verified end-to-end: server boots, `POST /pty` spawns a
+  real `/bin/zsh`, PTY echoes. Backend is now runnable on the user's machine (web app unchanged,
+  439 tests).
+- **2026-05-29** — **Phase 5, step 3: alt-screen — full-screen apps (vim/htop/less).** The Phase 1
+  renderer gained the long-deferred alternate screen. `renderer/screen.ts`: `enterAltScreen()`
+  stashes the primary scrollback + viewport and swaps in a fresh **capacity-`rows`** Scrollback
+  (no history — appending at the bottom evicts the top, i.e. fixed-screen scroll); `exitAltScreen()`
+  restores them (clamping the viewport in case a resize shortened the reflowed primary). `setCols`
+  now reflows the *stashed* primary while in alt so quitting lands at the right width.
+  `renderer/ansi/interpret.ts`: `setPrivateModes` dispatches DECSET/DECRST (`CSI ?Pm h/l`) — `25`
+  cursor show/hide, `47`/`1047`/`1049` alt screen, `1048` cursor save/restore; threads the parser's
+  `?` `prefix` (already captured) into `dispatchCsi`. `renderer/cursor.ts`: adds `hidden` (DECTCEM,
+  distinct from blink `visible`) + `saved` with `saveCursor`/`restoreCursor`; `drawCursor` and the
+  blink in `loop.ts` both respect `hidden`. **+8 golden tests** (439 total): hide/show, enter/exit
+  restores primary + cursor + pen, no-scrollback-in-alt, resize-in-alt. `PtyDemo` needs no change —
+  it already routes PTY output through `feed`, so vim/htop work for free. **Phase 5 complete**
+  (3 of 4 exit criteria met in code; the 4th is a whiteboard/reading exercise). Bundle 338 KB /
+  103 KB gzip. Next: Phase 6, Persistence + tiny backend.
+- **2026-05-29** — **Phase 5, step 2: frontend bridge — real shell in the browser.** New
+  `src/pty/`: `key-to-bytes.ts` (the *inverse* of the ANSI parser — `Key`→input bytes: Ctrl-A…Z→
+  0x01…0x1A, Enter→CR, Backspace→DEL, arrows/Home/F-keys→CSI/SS3, printables→`event.key`, Alt→ESC
+  prefix; pure, **+11 golden tests**), `pty-client.ts` (POST /pty + WS: input=binary, resize=text
+  control, output=binary→renderer, graceful "start the server" on failure). `demos/PtyDemo.tsx`
+  (5th tab, PTY P5): terminal + InputLayer + client; cols-resize → SIGWINCH; meta-only
+  `reservedGuard` so the terminal captures Ctrl-W/R/L; status badge + reconnect. PTY output already
+  has `\r\n` (slave's onlcr) so we feed raw. **Closes 2 of 4 exit criteria** (Ctrl-C→SIGINT, cols
+  resize→SIGWINCH); line-oriented programs work. 431 total tests; bundle 336 KB / 103 KB gzip.
+  **vim/htop need alt-screen → step 3.**
+- **2026-05-29** — **Phase 5, step 1: PTY backend.** New `services/pty/` — a self-contained Node
+  service (own package.json, no workspace; talks to the web app over the wire, not imports).
+  `server.ts`: HTTP `POST /pty` spawns a real PTY via **node-pty**; `WS /pty/:id` bridges it —
+  **binary frames = raw terminal data** (both directions), **text frames = JSON control**
+  (resize ↑ / exit ↓). Bound to **127.0.0.1 only** + localhost-Origin check (a PTY endpoint is
+  RCE by design — the doc's emphatic rule). Lifecycle: 30s orphan reap, 5s disconnect grace,
+  onExit closes the socket. node-pty does the UTF-8 decode at one boundary (the "don't split a
+  codepoint" hazard). **Not installed/run in sandbox** (native node-pty + real shell need the
+  user's machine); run via `cd services/pty && npm i && npm start`. Web app untouched (420
+  tests). Next: frontend key→bytes encoder + PtyClient + demo tab (step 2).
 - **2026-05-29** — **Phase 4, step 4: live studio — PHASE 4 COMPLETE.** New `demos/StudioDemo.tsx`
   (4th tab, Compiler P4): a visual config builder over `compileRaw` — toggle shell/aliases/env/
   plugins/options/prompt-segments/modules; `useMemo` recompiles on every change and renders the

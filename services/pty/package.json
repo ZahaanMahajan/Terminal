@@ -1,0 +1,25 @@
+{
+  "name": "@termi/pty-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local PTY backend for Termi — bridges real shells to the in-browser terminal over WebSocket (localhost only).",
+  "scripts": {
+    "postinstall": "node scripts/fix-perms.mjs",
+    "prestart": "node scripts/fix-perms.mjs",
+    "predev": "node scripts/fix-perms.mjs",
+    "start": "tsx server.ts",
+    "dev": "tsx watch server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

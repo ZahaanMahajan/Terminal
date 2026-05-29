@@ -3,6 +3,7 @@ import { TerminalDemo } from './demos/TerminalDemo';
 import { KeyboardDemo } from './demos/KeyboardDemo';
 import { ShellDemo } from './demos/ShellDemo';
 import { StudioDemo } from './demos/StudioDemo';
+import { PtyDemo } from './demos/PtyDemo';
 
 /**
  * App — a thin shell that switches between the per-phase demos.
@@ -18,6 +19,7 @@ const TABS: Tab[] = [
   { id: 'keyboard', label: 'Keyboard (P2)', render: () => <KeyboardDemo /> },
   { id: 'shell', label: 'Shell (P3)', render: () => <ShellDemo /> },
   { id: 'compiler', label: 'Compiler (P4)', render: () => <StudioDemo /> },
+  { id: 'pty', label: 'PTY (P5)', render: () => <PtyDemo /> },
 ];
 
 export default function App() {

@@ -45,6 +45,12 @@ export class Screen {
   /** Absolute scrollback id corresponding to viewport row 0. */
   private _viewportTop: number;
 
+  /**
+   * When the alternate screen is active, holds the stashed primary buffer + viewport so
+   * `exitAltScreen` can restore them verbatim. `null` ⇒ we're on the primary screen.
+   */
+  private _primary: { scrollback: Scrollback; viewportTop: number } | null = null;
+
   /** Viewport rows that have changed since the last successful paint. */
   readonly dirty: Set<number>;
 
@@ -154,6 +160,46 @@ export class Screen {
     this.markAllDirty();
   }
 
+  // ─── Alternate screen (full-screen apps: vim, htop, less) ────────────────────
+
+  /** True while the alternate screen buffer is active. */
+  get inAltScreen(): boolean {
+    return this._primary !== null;
+  }
+
+  /**
+   * Switch to a fresh alternate screen buffer (`CSI ?1049h` / `?1047h` / `?47h`). The primary
+   * scrollback + viewport are stashed and restored verbatim by `exitAltScreen` — that's *why*
+   * quitting vim leaves your shell history untouched.
+   *
+   * The alt buffer is exactly `rows` lines with **no scrollback** (capacity = rows): appending
+   * at the bottom evicts the top line, which is precisely "scroll the fixed screen up by one."
+   * Cursor positioning is the app's job (it sends CUP); we leave the cursor for the caller.
+   * No-op if already in the alt screen.
+   */
+  enterAltScreen(): void {
+    if (this._primary !== null) return;
+    this._primary = { scrollback: this._scrollback, viewportTop: this._viewportTop };
+    this._scrollback = new Scrollback(this._primary.scrollback.cols, this.rows);
+    for (let r = 0; r < this.rows; r++) this._scrollback.appendLine();
+    this._viewportTop = this._scrollback.oldestId;
+    this.markAllDirty();
+  }
+
+  /** Restore the stashed primary buffer (`CSI ?1049l` / …). No-op if already on the primary. */
+  exitAltScreen(): void {
+    if (this._primary === null) return;
+    const { scrollback, viewportTop } = this._primary;
+    this._scrollback = scrollback;
+    this._primary = null;
+    // Clamp the restored top into the buffer's current valid range — it may have been reflowed
+    // (and possibly shortened) by a resize while we were in the alt screen.
+    const minTop = this._scrollback.oldestId;
+    const maxTop = Math.max(minTop, this._scrollback.nextLineId - this.rows);
+    this._viewportTop = Math.max(minTop, Math.min(maxTop, viewportTop));
+    this.markAllDirty();
+  }
+
   // ─── Scrolling ─────────────────────────────────────────────────────────────
 
   /** Set viewportTop, clamped so the viewport stays within [oldestId, nextLineId − rows]. */
@@ -226,6 +272,24 @@ export class Screen {
   setCols(newCols: number, cursor?: Cursor): void {
     if (newCols <= 0) throw new Error('Screen.setCols: newCols must be > 0');
     if (newCols === this.cols) return;
+
+    if (this._primary !== null) {
+      // In the alt screen: reflow the *stashed* primary so it's the right width on exit, and
+      // rebuild a blank alt grid at the new size — the foreground app repaints on SIGWINCH, so
+      // there's nothing here worth reflowing. (The saved cursor for `?1049` is clamped into
+      // bounds on exit; an exact remap of a detached cursor isn't worth the complexity.)
+      this._primary.scrollback = reflowScrollback(this._primary.scrollback, newCols);
+      while (this._primary.scrollback.count < this.rows) this._primary.scrollback.appendLine();
+      this._scrollback = new Scrollback(newCols, this.rows);
+      for (let r = 0; r < this.rows; r++) this._scrollback.appendLine();
+      this._viewportTop = this._scrollback.oldestId;
+      if (cursor) {
+        cursor.lineId = this._viewportTop;
+        cursor.col = Math.min(cursor.col, newCols - 1);
+      }
+      this.markAllDirty();
+      return;
+    }
 
     this._scrollback = reflowScrollback(this._scrollback, newCols, cursor);
 

@@ -100,7 +100,8 @@ export function startRenderLoop(
 
     // 3. Cursor blink — toggles visibility, marks the cursor's current viewport row dirty.
     //    If the cursor's lineId is scrolled out of view, no row gets marked (correct).
-    if (cursor && ts - lastBlinkTs >= blinkIntervalMs) {
+    //    A DECTCEM-hidden cursor doesn't blink (no needless per-interval repaint).
+    if (cursor && !cursor.hidden && ts - lastBlinkTs >= blinkIntervalMs) {
       cursor.visible = !cursor.visible;
       const row = cursorViewportRow(cursor, screen);
       if (row !== null) screen.markDirty(row);

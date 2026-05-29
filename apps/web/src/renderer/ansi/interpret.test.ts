@@ -231,4 +231,78 @@ describe('feed (parser → interpreter)', () => {
       expect(screen.get(0, 0).attrs).toBe(ATTR_BOLD | ATTR_UNDERLINE);
     });
   });
+
+  describe('private modes (DECSET/DECRST: cursor, alt screen)', () => {
+    it('?25l hides the cursor; ?25h shows it again', () => {
+      expect(setup('\x1b[?25l').cursor.hidden).toBe(true);
+      expect(setup('\x1b[?25l\x1b[?25h').cursor.hidden).toBe(false);
+      expect(setup('X').cursor.hidden).toBe(false); // default visible
+    });
+
+    it('?1049h switches to a blank alternate screen', () => {
+      const { screen } = setup('hello\x1b[?1049h');
+      expect(screen.inAltScreen).toBe(true);
+      expect(rowText(screen, 0)).toBe(''); // alt screen starts empty
+    });
+
+    it('?1049l restores the primary buffer exactly, discarding alt content', () => {
+      const { screen, cursor } = setup('PRIMARY\x1b[?1049hALT\x1b[?1049l');
+      expect(screen.inAltScreen).toBe(false);
+      expect(rowText(screen, 0)).toBe('PRIMARY');
+      // Cursor position is restored to where it was on the primary screen.
+      expect(cursor.col).toBe(7);
+      expect(cursor.lineId).toBe(0);
+    });
+
+    it('?1049 round-trips the pen (SGR inside the alt screen is discarded)', () => {
+      const red = setup('\x1b[31m').cursor.pen.fg;
+      const { cursor } = setup('\x1b[31mAB\x1b[?1049h\x1b[32mXY\x1b[?1049l');
+      expect(cursor.pen.fg).toBe(red);
+      expect(cursor.col).toBe(2);
+    });
+
+    it('?47h / ?47l toggle the alt screen without touching the cursor', () => {
+      expect(setup('\x1b[?47h').screen.inAltScreen).toBe(true);
+      expect(setup('\x1b[?47h\x1b[?47l').screen.inAltScreen).toBe(false);
+    });
+
+    it('one sequence may set several modes ("\\x1b[?1049;25h" enters alt + shows cursor)', () => {
+      // Hide first, then a combined sequence that both enters the alt screen *and* re-shows
+      // the cursor — proving each mode in the list is applied.
+      const { screen, cursor } = setup('\x1b[?25l\x1b[?1049;25h');
+      expect(screen.inAltScreen).toBe(true);
+      expect(cursor.hidden).toBe(false);
+    });
+
+    it('the alt screen has no scrollback — primary history is untouched by alt output', () => {
+      const screen = new Screen(20, 4);
+      const cursor = makeCursor(0, 0);
+      const parser = new AnsiParser();
+      feed('line0', screen, cursor, parser);
+      const before = screen.scrollback.nextLineId;
+
+      feed('\x1b[?1049h', screen, cursor, parser);
+      feed('a\r\nb\r\nc\r\nd\r\ne\r\nf\r\ng\r\nh', screen, cursor, parser); // floods the 4-line alt grid
+      feed('\x1b[?1049l', screen, cursor, parser);
+
+      expect(screen.scrollback.nextLineId).toBe(before); // primary buffer never grew
+      expect(rowText(screen, 0)).toBe('line0');
+    });
+
+    it('resizing while in the alt screen lands the primary at the new width on exit', () => {
+      const screen = new Screen(10, 4);
+      const cursor = makeCursor(0, 0);
+      const parser = new AnsiParser();
+      feed('0123456789ABCDE', screen, cursor, parser); // wraps across two 10-col lines
+
+      feed('\x1b[?1049h', screen, cursor, parser);
+      screen.setCols(20, cursor);
+      expect(screen.cols).toBe(20); // alt grid is now 20 wide
+
+      feed('\x1b[?1049l', screen, cursor, parser);
+      expect(screen.inAltScreen).toBe(false);
+      expect(screen.cols).toBe(20); // primary reflowed to 20 too
+      expect(rowText(screen, 0)).toBe('0123456789ABCDE'); // one line at the wider width
+    });
+  });
 });

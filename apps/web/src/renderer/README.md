@@ -283,12 +283,17 @@ All four from the planning doc are met:
 
 ## Deferred (pick up when a real need shows)
 
-- **Alt-screen.** Two scrollbacks + a swap flag (`\x1b[?1049h/l`), for vim/htop-style
-  fullscreen apps. Deferred until the PTY (Phase 5) makes it observable.
+- ✅ **Alt-screen** — *added in Phase 5 step 3*, once the PTY made it observable. `screen.ts`
+  swaps in a fresh capacity-`rows` Scrollback (no history) on `\x1b[?1049h/?1047h/?47h`, stashes
+  the primary buffer + viewport, and restores them on `…l`; `ansi/interpret.ts setPrivateModes`
+  dispatches DECSET/DECRST, including `?25` cursor show/hide (`cursor.hidden`) and `?1048`
+  cursor save/restore. Resizing while in the alt screen reflows the stashed primary so it lands
+  correct on exit. vim/htop/less/nano work.
 - **Wide chars / grapheme clusters.** CJK + emoji are multi-cell; needs `Intl.Segmenter` and a
   width-aware Screen. Its own feature.
 - **OSC dispatch.** Window title, hyperlinks, clipboard — parser already swallows them safely.
-- **DSR / device reports.** Needed once a real interactive program is attached (Phase 5).
+- **DSR / device reports.** Needed once a real interactive program queries the terminal (e.g.
+  cursor-position report); not yet implemented.
 
 ## Things NOT to use yet (intentional)
 

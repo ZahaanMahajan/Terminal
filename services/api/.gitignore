@@ -1,0 +1,5 @@
+node_modules/
+# SQLite database + WAL/SHM sidecars — never commit data.
+*.db
+*.db-shm
+*.db-wal

@@ -23,6 +23,9 @@ export type Pen = {
   attrs: number;
 };
 
+/** A point-in-time snapshot of position + pen, for DECSC/DECRC and alt-screen save/restore. */
+export type SavedCursor = { col: number; lineId: number; pen: Pen };
+
 export type Cursor = {
   col: number;
   /** Absolute scrollback line id. */
@@ -30,6 +33,13 @@ export type Cursor = {
   shape: CursorShape;
   /** Toggled by the blink timer in the render loop. */
   visible: boolean;
+  /**
+   * DECTCEM (`CSI ?25l/h`): when true the cursor is not drawn at all. Distinct from `visible`,
+   * which is the blink phase — apps hide the cursor while redrawing, independent of blink.
+   */
+  hidden: boolean;
+  /** Saved snapshot for DECSC/DECRC and the alt-screen combo (`?1048`, `?1049`). */
+  saved: SavedCursor | null;
   /** Current foreground/background/attrs for printed characters. SGR mutates this. */
   pen: Pen;
 };
@@ -44,8 +54,30 @@ export function makeCursor(
     lineId,
     shape,
     visible: true,
+    hidden: false,
+    saved: null,
     pen: { fg: DEFAULT_FG, bg: DEFAULT_BG, attrs: 0 },
   };
+}
+
+/** DECSC / `CSI ?1048h`: snapshot position + pen *by value* (the pen is mutated in place). */
+export function saveCursor(cursor: Cursor): void {
+  cursor.saved = { col: cursor.col, lineId: cursor.lineId, pen: { ...cursor.pen } };
+}
+
+/**
+ * DECRC / `CSI ?1048l`: restore a saved snapshot, clamped into the *current* buffer's bounds.
+ * Used on alt-screen exit, where the saved lineId belongs to the (now-restored) primary buffer.
+ * No-op if nothing was saved.
+ */
+export function restoreCursor(cursor: Cursor, screen: Screen): void {
+  const s = cursor.saved;
+  if (!s) return;
+  const minId = screen.scrollback.oldestId;
+  const maxId = screen.scrollback.nextLineId - 1;
+  cursor.col = Math.max(0, Math.min(screen.cols - 1, s.col));
+  cursor.lineId = Math.max(minId, Math.min(maxId, s.lineId));
+  cursor.pen = { ...s.pen };
 }
 
 /** Reset pen colors + attrs to defaults. SGR 0 / SGR with no params calls this. */
@@ -103,6 +135,7 @@ export function drawCursor(
   screen: Screen,
   m: CellMetrics,
 ): void {
+  if (cursor.hidden) return; // DECTCEM: cursor turned off by the foreground app
   const row = cursorViewportRow(cursor, screen);
   if (row === null) return;
   if (cursor.col < 0) return;
