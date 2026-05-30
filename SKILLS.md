@@ -9,8 +9,8 @@
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
 as a terminal ecosystem. *Build engines before products. Understand every layer.*
 
-**Phase:** `06 — Persistence + Tiny Backend` (in progress; step 1 of ~3 done). Phases 1–5 ✅ complete.
-**Repo state:** Phases 1–5 done. Phase 6: `services/api/` scaffolded — Node + better-sqlite3, app-owned forward migrations (`migrations/001_init.sql`: users/sessions/setups/setup_versions), `GET /health` on 127.0.0.1:7683. Web app: 439 Vitest tests. API: 7 `node:test` migration tests + verified end-to-end (boot→migrate→health, FK + json_valid enforced). Auth (OAuth+PKCE) next.
+**Phase:** `06 — Persistence + Tiny Backend` ✅ complete (backend steps 1–3 + frontend wiring). **All 6 phases done.** Only the live GitHub OAuth round-trip needs the user's own OAuth-app creds.
+**Repo state:** All 6 phases complete. Backend `services/api/` (Node + better-sqlite3): app-owned migrations, hand-rolled GitHub OAuth (PKCE) + signed httpOnly sessions, `/setups` CRUD (session-guarded, ownership-scoped 404-not-403). Web app `src/persistence/` (typed cookie-credentialed API client) + `Sync (P6)` demo tab (sign-in, save/load, recompiles the loaded AST via P4 `compileRaw`). API: 38 `node:test`. Web: 445 Vitest (incl. 6 client tests), build clean (346 KB / 105 KB gzip). Live cross-device test needs `services/api` running with `GITHUB_CLIENT_ID/SECRET` + a GitHub OAuth App.
 **Last updated:** 2026-05-29
 
 ---
@@ -36,7 +36,7 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 | 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | ✅ done (steps 1–4) |
 | 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | ✅ done (steps 1–4 — the heart) |
 | 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | ✅ done (steps 1–3) |
-| 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | 🟨 in progress (step 1/~3) |
+| 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | ✅ done (backend + web wiring) |
 
 ---
 
@@ -105,6 +105,46 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 
 ## Changelog
 
+- **2026-05-29** — **Phase 6, frontend integration: sign-in + save/load — Phase 6 (and the whole
+  curriculum) complete.** New `apps/web/src/persistence/`: `client.ts` — a typed, cookie-credentialed
+  (`credentials:'include'`) API client (`getMe` maps 401→null, `listSetups/get/create/update/delete/
+  publishSetup`, `logout`, `loginUrl`; `ApiError` carries the server message). New `demos/SyncDemo.tsx`
+  (**Sync (P6)** tab, 6th tab in `App.tsx`): full-page GitHub sign-in, user header + sign-out, an AST
+  editor + setups list (load/publish/delete), handles `?auth_error=` from a failed callback, and
+  **recompiles the loaded AST via P4 `compileRaw`** so you watch the same dotfiles regenerate — the
+  AST is the shared source of truth. **+6 Vitest** (`client.test.ts`, stubbed `fetch`: URL/method,
+  credentials, `{setups}` unwrap, 401→null, 204→undefined, ApiError) → **445 web tests**, build clean
+  (346 KB / 105 KB gzip). Dev defaults align: web `localhost:5173` ↔ API `localhost:7683` (same-site
+  cookie — use `localhost`, not 127.0.0.1, both sides). Live cross-device test (sign in → save → load
+  in another browser) needs `services/api` running with a GitHub OAuth App's creds.
+- **2026-05-29** — **Phase 6, step 3: `/setups` CRUD — the backend complete.** `store.ts` gains
+  setups data access (list summaries, get/create/update/delete with `ast` JSON stringify-in/parse-out,
+  `publishSetup` snapshotting into `setup_versions` with `MAX(version)+1` in a transaction). New
+  `setups.ts`: `validateSetupInput` (pure — name/ast shape, partial for PATCH) + `handleSetups`
+  dispatcher (`GET/POST /setups`, `GET/PATCH/DELETE /setups/:id`, `POST /setups/:id/publish`), 1 MB
+  body cap, JSON parse with 400/413 on bad input. **Every query scoped to the session user → a
+  non-owned id is 404, not 403** (no existence leak). `server.ts` routes `/setups*` (session-guarded,
+  CORS + preflight incl. PATCH/DELETE for the web origin). **+9 tests (38 total):** validation +
+  store CRUD/publish-monotonic/ownership-isolation against `:memory:`. HTTP smoke-verified with a
+  seeded session: 401 w/o cookie, create→get→patch(name kept ast)→publish v1→v2→invalid 400→delete
+  204→get 404. **Phase 6 backend done.** Remaining for the phase's exit criteria: web-app wiring
+  (`apps/web` sign-in + save/load UI calling `/me` + `/setups`); optional git-sync.
+- **2026-05-29** — **Phase 6, step 2: auth — GitHub OAuth + sessions, by hand.** No auth library
+  (the plan lists "OAuth provider libraries" under *avoid*). BFF flow — the browser never sees a
+  token. New modules in `services/api/src/`: `crypto.ts` (HMAC-signed cookies + PKCE S256, pure),
+  `cookies.ts` (parse/serialize), `config.ts` (env→`AuthConfig`, null = disabled so `/health` still
+  boots), `store.ts` (users + sessions SQL — upsert by `github_id`, sliding idle expiry, rotate on
+  login), `github.ts` (authorize URL pure + token/user fetch), `auth.ts` (handlers + reusable
+  `currentUser`), `respond.ts` (json helper); `server.ts` now routes `/auth/github/login`,
+  `/auth/github/callback`, `GET /me`, `POST /auth/logout` (+ CORS/credentials for the web origin,
+  503 when unconfigured). Sessions = signed httpOnly `termi_session` (SameSite=Lax, Secure on
+  https); OAuth txn carried in a short-lived signed cookie scoped to `/auth/github`. **+22 tests
+  (29 total):** crypto incl. **RFC 7636 Appendix B PKCE vector**, sign/tamper, cookies,
+  store-against-`:memory:` (upsert/expiry/FK-cascade), authorize-URL. Smoke-verified without
+  GitHub: login 302→authorize w/ S256+state, `/me`→401, callback rejects bad state (CSRF), good
+  state proceeds to exchange. Real round-trip needs a registered GitHub OAuth App
+  (`GITHUB_CLIENT_ID/SECRET`, callback `http://localhost:7683/auth/github/callback`) — use
+  `localhost` both sides for the same-site cookie. Next: step 3, `/setups` CRUD.
 - **2026-05-29** — **Phase 6, step 1: backend foundation — SQLite + app-owned migrations.** New
   `services/api/` (Node + TypeScript, chosen over Go), its own package, separate from the PTY
   service (which is RCE-by-design; this one holds sessions/data). **No ORM, no framework, no
