@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Termi's tiny REST backend — SQLite persistence, hand-rolled OAuth+sessions, app-owned migrations (localhost only for now).",
+  "description": "Terminal's tiny REST backend — SQLite persistence, hand-rolled OAuth+sessions, app-owned migrations (localhost only for now).",
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",

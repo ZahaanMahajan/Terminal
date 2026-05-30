@@ -2,118 +2,164 @@
  * emit.test.ts — IR → text (per-statement goldens, escaping) + AST → IR ordering.
  */
 
-import { describe, it, expect } from 'vitest';
-import { emitShell, emitStarship } from './emit';
-import { lowerPrompt, lowerShell } from './lower';
-import type { ShellIR, ShellStmt } from './ir';
-import { parseSetup } from './validate';
+import { describe, it, expect } from "vitest";
+import { emitShell, emitStarship } from "./emit";
+import { lowerPrompt, lowerShell } from "./lower";
+import type { ShellIR, ShellStmt } from "./ir";
+import { parseSetup } from "./validate";
 
-const sh = (shell: ShellIR['shell'], ...statements: ShellStmt[]): ShellIR => ({ shell, statements });
+const sh = (shell: ShellIR["shell"], ...statements: ShellStmt[]): ShellIR => ({
+  shell,
+  statements,
+});
 /** Emit a one-statement IR and strip the trailing newline for compact assertions. */
-const line = (shell: ShellIR['shell'], stmt: ShellStmt): string => emitShell(sh(shell, stmt)).replace(/\n$/, '');
+const line = (shell: ShellIR["shell"], stmt: ShellStmt): string =>
+  emitShell(sh(shell, stmt)).replace(/\n$/, "");
 
-describe('emitShell — per-statement', () => {
-  it('comment / blank', () => {
-    expect(line('zsh', { kind: 'comment', text: 'hi' })).toBe('# hi');
-    expect(line('zsh', { kind: 'blank' })).toBe('');
+describe("emitShell — per-statement", () => {
+  it("comment / blank", () => {
+    expect(line("zsh", { kind: "comment", text: "hi" })).toBe("# hi");
+    expect(line("zsh", { kind: "blank" })).toBe("");
   });
 
-  describe('export (double-quoted, $ preserved)', () => {
-    it('plain value', () => {
-      expect(line('zsh', { kind: 'export', name: 'EDITOR', value: 'nvim' })).toBe('export EDITOR="nvim"');
+  describe("export (double-quoted, $ preserved)", () => {
+    it("plain value", () => {
+      expect(
+        line("zsh", { kind: "export", name: "EDITOR", value: "nvim" }),
+      ).toBe('export EDITOR="nvim"');
     });
-    it('keeps $ for expansion', () => {
-      expect(line('zsh', { kind: 'export', name: 'PATH', value: '$HOME/bin:$PATH' })).toBe(
-        'export PATH="$HOME/bin:$PATH"',
+    it("keeps $ for expansion", () => {
+      expect(
+        line("zsh", { kind: "export", name: "PATH", value: "$HOME/bin:$PATH" }),
+      ).toBe('export PATH="$HOME/bin:$PATH"');
+    });
+    it("escapes embedded double quotes and backslashes", () => {
+      expect(
+        line("zsh", { kind: "export", name: "X", value: 'say "hi"' }),
+      ).toBe('export X="say \\"hi\\""');
+      expect(line("zsh", { kind: "export", name: "Y", value: "a\\b" })).toBe(
+        'export Y="a\\\\b"',
       );
     });
-    it('escapes embedded double quotes and backslashes', () => {
-      expect(line('zsh', { kind: 'export', name: 'X', value: 'say "hi"' })).toBe('export X="say \\"hi\\""');
-      expect(line('zsh', { kind: 'export', name: 'Y', value: 'a\\b' })).toBe('export Y="a\\\\b"');
+  });
+
+  describe("alias (single-quoted, verbatim)", () => {
+    it("plain value", () => {
+      expect(
+        line("zsh", { kind: "alias", name: "gs", value: "git status" }),
+      ).toBe("alias gs='git status'");
+    });
+    it("escapes embedded single quotes with the close-reopen trick", () => {
+      expect(line("zsh", { kind: "alias", name: "x", value: "it's" })).toBe(
+        "alias x='it'\\''s'",
+      );
     });
   });
 
-  describe('alias (single-quoted, verbatim)', () => {
-    it('plain value', () => {
-      expect(line('zsh', { kind: 'alias', name: 'gs', value: 'git status' })).toBe("alias gs='git status'");
-    });
-    it('escapes embedded single quotes with the close-reopen trick', () => {
-      expect(line('zsh', { kind: 'alias', name: 'x', value: "it's" })).toBe("alias x='it'\\''s'");
-    });
+  it("option: setopt (zsh) vs shopt -s (bash)", () => {
+    expect(line("zsh", { kind: "option", name: "AUTO_CD" })).toBe(
+      "setopt AUTO_CD",
+    );
+    expect(line("bash", { kind: "option", name: "autocd" })).toBe(
+      "shopt -s autocd",
+    );
   });
 
-  it('option: setopt (zsh) vs shopt -s (bash)', () => {
-    expect(line('zsh', { kind: 'option', name: 'AUTO_CD' })).toBe('setopt AUTO_CD');
-    expect(line('bash', { kind: 'option', name: 'autocd' })).toBe('shopt -s autocd');
-  });
-
-  it('plugin: guarded source, per-shell path/extension', () => {
-    expect(line('zsh', { kind: 'plugin', id: 'fzf' })).toBe(
+  it("plugin: guarded source, per-shell path/extension", () => {
+    expect(line("zsh", { kind: "plugin", id: "fzf" })).toBe(
       '[ -f "$HOME/.zsh/plugins/fzf/fzf.zsh" ] && source "$HOME/.zsh/plugins/fzf/fzf.zsh"',
     );
-    expect(line('bash', { kind: 'plugin', id: 'fzf' })).toBe(
+    expect(line("bash", { kind: "plugin", id: "fzf" })).toBe(
       '[ -f "$HOME/.bash/plugins/fzf/fzf.bash" ] && source "$HOME/.bash/plugins/fzf/fzf.bash"',
     );
   });
 
-  it('initPrompt: per-shell starship init', () => {
-    expect(line('zsh', { kind: 'initPrompt', engine: 'starship' })).toBe('eval "$(starship init zsh)"');
-    expect(line('bash', { kind: 'initPrompt', engine: 'starship' })).toBe('eval "$(starship init bash)"');
+  it("initPrompt: per-shell starship init", () => {
+    expect(line("zsh", { kind: "initPrompt", engine: "starship" })).toBe(
+      'eval "$(starship init zsh)"',
+    );
+    expect(line("bash", { kind: "initPrompt", engine: "starship" })).toBe(
+      'eval "$(starship init bash)"',
+    );
   });
 
-  it('output ends with a trailing newline', () => {
-    expect(emitShell(sh('zsh', { kind: 'comment', text: 'x' }))).toBe('# x\n');
+  it("output ends with a trailing newline", () => {
+    expect(emitShell(sh("zsh", { kind: "comment", text: "x" }))).toBe("# x\n");
   });
 });
 
-describe('emitStarship', () => {
-  it('renders settings and the format line', () => {
-    expect(emitStarship({ settings: [{ key: 'add_newline', value: false }], format: '$directory$character' })).toBe(
-      '# Generated by Termi. Edit the setup, not this file.\n\nadd_newline = false\nformat = "$directory$character"\n',
+describe("emitStarship", () => {
+  it("renders settings and the format line", () => {
+    expect(
+      emitStarship({
+        settings: [{ key: "add_newline", value: false }],
+        format: "$directory$character",
+      }),
+    ).toBe(
+      '# Generated by Terminal. Edit the setup, not this file.\n\nadd_newline = false\nformat = "$directory$character"\n',
     );
   });
 });
 
-describe('lowerShell — ordering', () => {
-  it('lays out sections env → options → plugins → aliases → prompt', () => {
+describe("lowerShell — ordering", () => {
+  it("lays out sections env → options → plugins → aliases → prompt", () => {
     const r = parseSetup({
       schemaVersion: 2,
-      meta: { name: 't', os: ['macos'] },
+      meta: { name: "t", os: ["macos"] },
       shell: {
-        kind: 'zsh',
-        env: [{ name: 'A', value: '1' }],
-        options: ['O'],
-        plugins: ['p'],
-        aliases: [{ name: 'a', value: 'b' }],
+        kind: "zsh",
+        env: [{ name: "A", value: "1" }],
+        options: ["O"],
+        plugins: ["p"],
+        aliases: [{ name: "a", value: "b" }],
       },
-      prompt: { engine: 'starship', segments: ['character'] },
+      prompt: { engine: "starship", segments: ["character"] },
     });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const kinds = lowerShell(r.setup).statements.map((s) => s.kind);
     expect(kinds).toEqual([
-      'comment',
-      'blank', 'comment', 'export',
-      'blank', 'comment', 'option',
-      'blank', 'comment', 'plugin',
-      'blank', 'comment', 'alias',
-      'blank', 'comment', 'initPrompt',
+      "comment",
+      "blank",
+      "comment",
+      "export",
+      "blank",
+      "comment",
+      "option",
+      "blank",
+      "comment",
+      "plugin",
+      "blank",
+      "comment",
+      "alias",
+      "blank",
+      "comment",
+      "initPrompt",
     ]);
   });
 
-  it('omits empty sections', () => {
-    const r = parseSetup({ schemaVersion: 2, meta: { name: 't', os: ['macos'] }, shell: { kind: 'zsh' } });
+  it("omits empty sections", () => {
+    const r = parseSetup({
+      schemaVersion: 2,
+      meta: { name: "t", os: ["macos"] },
+      shell: { kind: "zsh" },
+    });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(lowerShell(r.setup).statements.map((s) => s.kind)).toEqual(['comment']);
+    expect(lowerShell(r.setup).statements.map((s) => s.kind)).toEqual([
+      "comment",
+    ]);
   });
 });
 
-describe('lowerPrompt', () => {
-  it('assembles the format string from segments; null when no prompt', () => {
-    expect(lowerPrompt({ engine: 'starship', segments: ['directory', 'git_branch', 'character'] })?.format).toBe(
-      '$directory$git_branch$character',
-    );
+describe("lowerPrompt", () => {
+  it("assembles the format string from segments; null when no prompt", () => {
+    expect(
+      lowerPrompt({
+        engine: "starship",
+        segments: ["directory", "git_branch", "character"],
+      })?.format,
+    ).toBe("$directory$git_branch$character");
     expect(lowerPrompt(undefined)).toBeNull();
   });
 });

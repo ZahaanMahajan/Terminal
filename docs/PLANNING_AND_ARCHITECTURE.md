@@ -1,4 +1,4 @@
-# Termi — A Roadmap for Becoming an Elite Engineer by Building a Terminal Ecosystem From Scratch
+# Terminal — A Roadmap for Becoming an Elite Engineer by Building a Terminal Ecosystem From Scratch
 
 > **Version:** 1.0 (full rewrite — supersedes v0.1)
 > **Audience:** one developer (you)
@@ -36,7 +36,7 @@ you to understand a system, that section is wrong. Delete it.
 1. **Systems-first.** The interesting questions are "how does a terminal actually work?", "what is
    an ANSI escape sequence really?", "what does a compiler IR look like?". Not "what's our CDN?"
 2. **Rendering-first.** You will paint pixels yourself before you let any library do it for you.
-3. **Compiler-first.** The Config Compiler is the *intellectual core* of this project. Everything
+3. **Compiler-first.** The Config Compiler is the _intellectual core_ of this project. Everything
    else exists to make it interesting to use.
 4. **Architecture-first.** Decisions are written down. Abstractions are introduced only when their
    absence has caused you measurable pain at least twice.
@@ -50,7 +50,7 @@ The cure is this discipline:
 - **Read before you write.** Before implementing a thing, read at least two real implementations
   (`xterm.js`, `kitty`, `alacritty`, a real shell, a real parser). Take notes in `docs/notes/`.
 - **Write a one-paragraph design before any non-trivial function.** What does it do, what's the
-  input/output contract, what's the failure mode, what is intentionally *not* solved? Comment-block
+  input/output contract, what's the failure mode, what is intentionally _not_ solved? Comment-block
   it in the file.
 - **No library you cannot describe.** Before `npm install X`, you must be able to write a paragraph
   explaining what X does and what part of it you're using. If you can't, you don't understand the
@@ -60,10 +60,10 @@ The cure is this discipline:
   is hand-wavy.
 - **Snapshot/golden tests over assertions.** For renderers, parsers, and compilers, the most
   educational tests are "given this input, here's the exact output." Diffs become a teacher.
-- **Tracebacks are study material.** When something breaks, read the *full* stack and the
-  *library's own source* before searching online. The bug is a free lecture; don't skip class.
+- **Tracebacks are study material.** When something breaks, read the _full_ stack and the
+  _library's own source_ before searching online. The bug is a free lecture; don't skip class.
 
-### 1.3 Why simpler is better — *now*
+### 1.3 Why simpler is better — _now_
 
 A small architecture is not "less work." It is **more learning per unit of code**, because each
 piece is something you wrote and understand. A microservice you copy-pasted from a tutorial
@@ -72,8 +72,8 @@ Kubernetes manifests, GraphQL federation, CRDT libraries, and OAuth providers. *
 by being the system.**
 
 There is a second, subtler reason. Premature complexity hides your skill gaps. If you sit on a
-huge stack, every bug routes through layers you didn't write, and you build a habit of *guessing
-upward* ("must be a Next.js thing"). A small stack forces every bug back to *your* code. That is
+huge stack, every bug routes through layers you didn't write, and you build a habit of _guessing
+upward_ ("must be a Next.js thing"). A small stack forces every bug back to _your_ code. That is
 where engineering intuition is grown.
 
 ### 1.4 When you'll know it's time to add something
@@ -84,8 +84,9 @@ A rule, calibrated for this project:
 > note it. Second time: still note it. Third time: implement, and remove the workaround.
 
 Examples in practice:
+
 - A second consumer of "render a terminal frame" → still just a function call.
-- A third surface that needs it, and the third one needs it slightly differently → *now* extract
+- A third surface that needs it, and the third one needs it slightly differently → _now_ extract
   a `TerminalRenderer` interface.
 - One spot where two writers race over the same file → take the L, add a mutex, move on.
 - Three spots → consider a `Store` with explicit transactions. Not before.
@@ -140,13 +141,13 @@ another. **One process, one machine, one head.**
 
 ### 2.1 Why this beats the big architecture for learning
 
-- **Every module is small enough to rewrite in a weekend.** That means you'll *actually* rewrite
+- **Every module is small enough to rewrite in a weekend.** That means you'll _actually_ rewrite
   it when you learn something, instead of carrying around your first naive implementation forever.
 - **The data path is visible.** A keystroke goes: DOM event → keyboard engine → fake shell →
   bytes → parser → renderer → pixels. You can put a `console.log` at every step and watch a key
   travel. That is the entire mental model of a terminal in 50 lines of glue.
 - **No black boxes.** When the cursor renders one pixel off, you don't blame "the framework."
-  You open *your* file and fix *your* bug.
+  You open _your_ file and fix _your_ bug.
 - **Refactor cost is near zero.** When you learn a better approach in week 8, week 1's code can
   be deleted with one keystroke. Big architectures resist their own evolution.
 
@@ -166,18 +167,18 @@ Next.js solves problems that **do not exist yet in this project**: server render
 route-level data loading, image optimization, edge middleware, server actions. Adopting it now
 means you spend cognitive energy on RSC boundaries, server/client component rules, caching
 semantics, and a build pipeline you didn't write — none of which teaches you anything about
-*terminals*. Vite gives you the absolute minimum: a fast dev server, ES modules in the browser,
+_terminals_. Vite gives you the absolute minimum: a fast dev server, ES modules in the browser,
 HMR, a build command. You can read its config in one sitting. Everything you don't understand in
 your app is **yours**, not the framework's.
 
-When does Next.js become justified? When you have *public, indexable* setup pages that need to
+When does Next.js become justified? When you have _public, indexable_ setup pages that need to
 load fast on cold visits (Phase 6+ at the earliest), and the team is more than just you. Until
 then, Vite + a single SPA route is correct.
 
 #### Why direct browser rendering matters
 
 The browser is a renderer pretending to be a document model. Most web devs only learn the document
-model. By going directly to `<canvas>` you learn what a renderer *is*: a loop that maps state to
+model. By going directly to `<canvas>` you learn what a renderer _is_: a loop that maps state to
 pixels under a frame budget. You will learn to think in 16ms windows, in dirty regions, in glyph
 atlases, in damage. That mental model transfers to every UI framework, every game engine, every
 graphics API you ever touch.
@@ -186,11 +187,11 @@ graphics API you ever touch.
 
 Canvas is a deliberately small surface. You get `fillRect`, `fillText`, `drawImage`, a couple of
 transforms, and the rest is up to you. That smallness is the lesson. To draw a terminal you have
-to *think about*: text metrics and baselines, monospace cell math, cursor blink timing, scroll as
+to _think about_: text metrics and baselines, monospace cell math, cursor blink timing, scroll as
 buffer-window arithmetic, double-buffering for flicker, glyph caching for performance. None of
 that is hidden from you. Compare to "use xterm.js" — you'd be done in an hour and learn nothing.
 
-You will *eventually* graduate to WebGL (for glyph atlases on the GPU) and *eventually* compare
+You will _eventually_ graduate to WebGL (for glyph atlases on the GPU) and _eventually_ compare
 your renderer to xterm.js. But you should be able to look at xterm.js source and recognize each
 piece from having built a worse version of it yourself.
 
@@ -205,7 +206,7 @@ piece from having built a worse version of it yourself.
 
 #### Monolith-first
 
-Service boundaries are *coordination cost*: extra network calls, two deploy pipelines, two error
+Service boundaries are _coordination cost_: extra network calls, two deploy pipelines, two error
 surfaces, more security boundaries, distributed tracing, etc. They are sometimes worth it — when
 two teams own different lifecycles, or when one component genuinely needs different scaling
 characteristics. **You are one person.** A single binary, with internal module boundaries (e.g.,
@@ -219,18 +220,18 @@ products started on one box with SQLite. The fancy stuff is for when measurement
 
 ### 3.3 What you are explicitly **not** installing
 
-| Tool | Why you're skipping it (for now) |
-|------|----------------------------------|
-| `xterm.js` | You're building the renderer to learn the renderer. |
-| `node-pty` | A real PTY in Phase 5; a fake shell first. |
-| `next` | Solves zero problems you currently have. |
-| `graphql`, `apollo` | REST is enough; GraphQL is for many-client fan-out you don't have. |
-| `socket.io`, `ws` | No realtime needs yet. |
-| Redux/Zustand/Jotai | React state + a few stores is fine; pick one only when context props cause real pain. |
-| ORMs (Prisma/Drizzle) | Write SQL. You need to understand the queries you're running. |
-| OAuth libraries | Implement the code+PKCE flow yourself once. You'll never fear it again. |
-| Docker | Run things on your machine. Containerize when deploying. |
-| Kubernetes | Not in this document, not in this decade. |
+| Tool                  | Why you're skipping it (for now)                                                      |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `xterm.js`            | You're building the renderer to learn the renderer.                                   |
+| `node-pty`            | A real PTY in Phase 5; a fake shell first.                                            |
+| `next`                | Solves zero problems you currently have.                                              |
+| `graphql`, `apollo`   | REST is enough; GraphQL is for many-client fan-out you don't have.                    |
+| `socket.io`, `ws`     | No realtime needs yet.                                                                |
+| Redux/Zustand/Jotai   | React state + a few stores is fine; pick one only when context props cause real pain. |
+| ORMs (Prisma/Drizzle) | Write SQL. You need to understand the queries you're running.                         |
+| OAuth libraries       | Implement the code+PKCE flow yourself once. You'll never fear it again.               |
+| Docker                | Run things on your machine. Containerize when deploying.                              |
+| Kubernetes            | Not in this document, not in this decade.                                             |
 
 ---
 
@@ -275,7 +276,7 @@ scrollback buffer, line wrapping, and at least 60fps for normal use.
 **What you'll learn (the actual point):**
 
 - The **render loop** as a concept (state → frame → present → repeat). Frame budget, jank,
-  vsync, the difference between *redraw* and *re-layout*.
+  vsync, the difference between _redraw_ and _re-layout_.
 - **Text rendering**: baselines, advance widths, why monospace matters, why ligatures break the
   cell model, fallback fonts, kerning (and why terminals ignore it).
 - **Damage / dirty-region tracking** — the single biggest perf trick in any UI system.
@@ -300,14 +301,14 @@ scrollback buffer, line wrapping, and at least 60fps for normal use.
 - Drawing each character one `fillText` call without caching. (Slow; that's where the glyph
   cache lesson lives.)
 - Storing styled text as HTML strings or with embedded escape codes in your `Screen`. The
-  `Screen` is *parsed state*, not raw bytes. Parse once; render many.
+  `Screen` is _parsed state_, not raw bytes. Parse once; render many.
 - Treating wrap as "just keep drawing past the edge." Wrap is data; record it.
 - Using `key` events to drive rendering directly. Input is a separate phase; keep them
   decoupled.
 
 **Libraries to avoid in this phase:**
 
-- `xterm.js` (the whole point is to *be* it for one phase of your life)
+- `xterm.js` (the whole point is to _be_ it for one phase of your life)
 - React for the renderer itself — render on a `<canvas>` ref, not via JSX
 - Any "ANSI parser" npm package
 - A font rendering library; the built-in Canvas text is exactly the experience you want
@@ -334,7 +335,7 @@ and shell-style readline bindings — and resolves them deterministically.
 2. **A `Keymap` type** that maps key sequences to **named actions** (not callbacks). Names give
    you debuggability, conflict detection, and remappability.
 3. **A mode-aware FSM.** Modes: `normal`, `insert`, `visual`, `prefix-pending`. The FSM holds a
-   *pending buffer* of keys, attempts to match against the active keymap's trie, and either fires
+   _pending buffer_ of keys, attempts to match against the active keymap's trie, and either fires
    an action, awaits more keys (with `timeoutMs`), or rejects.
 4. **A keymap trie.** Multi-key sequences (`gg`, `<leader>ff`, `Ctrl-b "`) live in a trie so
    resolution is `O(sequence length)`.
@@ -350,7 +351,7 @@ and shell-style readline bindings — and resolves them deterministically.
   to scope it (never globally hijack `Cmd+W`).
 - **Finite state machines** for real (modes are textbook FSMs; vim and tmux are case studies).
 - **Tries** as a practical data structure, not a Leetcode answer.
-- **Keyboard abstraction layers**: separating *physical key* from *logical key* from *action*.
+- **Keyboard abstraction layers**: separating _physical key_ from _logical key_ from _action_.
   This three-layer model is the right answer in every input system you'll ever touch (games,
   editors, accessibility tools).
 - **Determinism under timeouts** — the subtle UX of `timeoutlen`.
@@ -428,7 +429,7 @@ a small command set against a fake filesystem, and renders through your Phase 1 
 
 - Using `String.split(' ')` as your tokenizer. (You will burn yourself on `echo "hello world"`.)
 - Implementing globbing before you've nailed tokenization. One thing at a time.
-- Building a fake `git` *now*. The shell renders something *like* a git prompt segment; the
+- Building a fake `git` _now_. The shell renders something _like_ a git prompt segment; the
   segment is fake data. Don't simulate the world.
 - Making `cd` change the React tree directly. The shell owns `cwd`; the renderer subscribes.
 
@@ -447,7 +448,7 @@ a small command set against a fake filesystem, and renders through your Phase 1 
 intermediate representations per target; emitters that produce real, idiomatic dotfiles. All
 in TypeScript, all in-browser, all comprehensible end-to-end.
 
-This is **the** phase. Other phases are interesting; this one is *yours*. It is the thing that
+This is **the** phase. Other phases are interesting; this one is _yours_. It is the thing that
 will most clearly distinguish you as an engineer.
 
 **What you build:**
@@ -460,18 +461,18 @@ will most clearly distinguish you as an engineer.
    // packages/compiler/src/ast.ts
    type Setup = {
      schemaVersion: 1;
-     shell: ShellConfig;        // { kind: 'zsh' | 'bash'; aliases, env, plugins }
-     prompt?: PromptConfig;     // { engine: 'starship'; segments: PromptSegment[] }
-     meta: { name: string; os: Array<'macos' | 'linux'> };
+     shell: ShellConfig; // { kind: 'zsh' | 'bash'; aliases, env, plugins }
+     prompt?: PromptConfig; // { engine: 'starship'; segments: PromptSegment[] }
+     meta: { name: string; os: Array<"macos" | "linux"> };
    };
    ```
 
 2. **Validation.** `zod` parses the AST; semantic checks (referenced plugins exist, env keys
-   are valid identifiers, no duplicate aliases) run after parsing and produce a *list* of
+   are valid identifiers, no duplicate aliases) run after parsing and produce a _list_ of
    diagnostics with file-position-style paths into the AST.
 3. **Lowering to an IR.** For each target (zsh, starship, etc.), define an IR — an ordered list
-   of *statements* in the natural shape of the target. For zsh: `[Export, Alias, SourcePlugin,
-   InitPrompt]`. The lowering pass walks the AST and emits IR statements in dependency order.
+   of _statements_ in the natural shape of the target. For zsh: `[Export, Alias, SourcePlugin,
+InitPrompt]`. The lowering pass walks the AST and emits IR statements in dependency order.
 4. **Emitters.** IR → string. A pretty-printer per target. Pure, deterministic.
 5. **Golden tests.** A fixtures folder with `*.ast.json` → `*.expected.zshrc`. The test runner
    compiles each AST and `diff`s against the expected file. **This is the soul of the project.**
@@ -481,9 +482,9 @@ will most clearly distinguish you as an engineer.
    output, updated as you edit the AST.
 7. **Migrations.** When you change the AST shape, write a one-function migration
    (`v1 → v2(setup)`). Run on load. Never break an old setup.
-8. **A tiny "modules" idea.** A module is a *function* `(setup) → setup` that adds aliases,
+8. **A tiny "modules" idea.** A module is a _function_ `(setup) → setup` that adds aliases,
    env, plugins. That's it. No registry yet. No marketplace. A module is a TS file in `packages/
-   compiler/src/modules/`. You'll know if you need more later.
+compiler/src/modules/`. You'll know if you need more later.
 
 **Folder shape:**
 
@@ -516,9 +517,9 @@ packages/compiler/
 
 **What you'll learn (this is the gold):**
 
-- **Compilers** as a *practical* topic, not a theoretical one. You will internalize the
+- **Compilers** as a _practical_ topic, not a theoretical one. You will internalize the
   AST → IR → backend pattern that powers every real compiler (LLVM, Roslyn, swc, Babel).
-- **Intermediate representations** and *why* they exist (decoupling source from target;
+- **Intermediate representations** and _why_ they exist (decoupling source from target;
   enabling multiple front-ends and back-ends; making optimizations local).
 - **Schema design and evolution.** Versioned schemas + migrations are how all real long-lived
   software handles change. Doing it once for your AST inoculates you against years of bad
@@ -533,16 +534,16 @@ packages/compiler/
 
 **What to read:**
 
-- *Crafting Interpreters*, Part II (it's a tree-walking compiler; perfect calibration).
-- The first few chapters of *Engineering a Compiler* (Cooper & Torczon) — IR design.
+- _Crafting Interpreters_, Part II (it's a tree-walking compiler; perfect calibration).
+- The first few chapters of _Engineering a Compiler_ (Cooper & Torczon) — IR design.
 - `swc` or `Babel`'s source for a real-world AST + visitor pattern.
-- `stylua`/`shfmt`/`prettier` for emitter inspiration (how do *they* keep output stable?).
-- *Stages of Compilation* (any classic compilers textbook) — the lowering pipeline.
+- `stylua`/`shfmt`/`prettier` for emitter inspiration (how do _they_ keep output stable?).
+- _Stages of Compilation_ (any classic compilers textbook) — the lowering pipeline.
 
 **Mistakes to avoid:**
 
 - Emitting strings directly from the AST. (You skipped the IR; you'll regret it within a week.)
-- Putting logic in templates. Logic in transforms; templates emit *only* strings.
+- Putting logic in templates. Logic in transforms; templates emit _only_ strings.
 - Adding 12 targets before one works perfectly. Depth over breadth in Phase 4.
 - Skipping golden tests because "I'll see if it looks right." You won't, for long.
 - Generating output that's "right" but ugly. Run real formatters (`shfmt`, `stylua`) on your
@@ -557,7 +558,7 @@ packages/compiler/
 **Exit criteria:**
 
 - Edit a slider in the UI → AST changes → compiler runs → output diff updates in < 50ms.
-- Three real targets compile to outputs that *actually work* if pasted into a real shell.
+- Three real targets compile to outputs that _actually work_ if pasted into a real shell.
 - 50+ golden tests, all green.
 - You can describe at a whiteboard: AST → validate → lower → IR → emit → format. Without notes.
 
@@ -565,7 +566,7 @@ packages/compiler/
 
 ### Phase 5 — Real PTY Integration
 
-By now your fake shell has taught you what a shell *does*. Now you learn what one *is*, on a
+By now your fake shell has taught you what a shell _does_. Now you learn what one _is_, on a
 real operating system.
 
 **Goal:** run a real shell (`zsh`, `bash`) inside your in-browser terminal via a tiny local
@@ -654,9 +655,9 @@ flow.
   fear of identity providers after doing this once.
 - **Cookies and sessions** the right way — httpOnly, SameSite, signed values, rotation, idle
   expiry, the difference between authentication and a session.
-- **SQL** as a *language*, not an ORM-mediated set of method calls. You will write joins. You
+- **SQL** as a _language_, not an ORM-mediated set of method calls. You will write joins. You
   will understand indexes. You will run `EXPLAIN`.
-- **Migrations** as a *practice* — irreversible, forward-only, owned by the app.
+- **Migrations** as a _practice_ — irreversible, forward-only, owned by the app.
 - **HTTP semantics** — idempotency, status codes, caching headers, content negotiation. (REST
   becomes natural once you've designed a small one.)
 - **Error handling at boundaries** — what the client sees vs. what you log.
@@ -665,7 +666,7 @@ flow.
 
 - RFC 6749 (OAuth 2.0) and RFC 7636 (PKCE). Yes, read the RFCs. They are short.
 - SQLite's documentation pages on WAL mode and `PRAGMA`s — surprisingly enlightening.
-- *Designing Data-Intensive Applications*, chapters 2–3 (data models and storage engines) —
+- _Designing Data-Intensive Applications_, chapters 2–3 (data models and storage engines) —
   not because you need them yet, but because now you have hooks to hang the ideas on.
 
 **Mistakes to avoid:**
@@ -674,7 +675,7 @@ flow.
 - Storing tokens in `localStorage`. Cookies are right; XSS exposure of tokens is real.
 - "Just make it work" auth. Auth bugs are silent and catastrophic; this is one of the few
   places to slow down and be paranoid.
-- Adding Redis/queues/etc. SQLite + the request thread is enough. *Far* enough.
+- Adding Redis/queues/etc. SQLite + the request thread is enough. _Far_ enough.
 
 **Exit criteria:**
 
@@ -685,30 +686,30 @@ flow.
 
 ---
 
-## 5. What's been removed — and *why* and *when* (maybe)
+## 5. What's been removed — and _why_ and _when_ (maybe)
 
 Each of these belongs in a different project, or in this project years from now after a
 specific, observed pain. Don't add any of them sooner.
 
-| Removed | Why it's premature now | When it might become relevant |
-|---------|------------------------|-------------------------------|
-| **Microservices** | One process is comprehensible; many is not. The bug surface multiplies before the load does. | When two genuinely independent lifecycles or scaling profiles emerge, *and* you have ops to support it. |
-| **Kubernetes** | A solution to a problem you don't have (orchestrating many containers across many machines). | If you ever run dozens of services across many nodes with real SLOs. For one Node/Go binary, `systemd` is plenty. |
-| **CRDTs** | They solve concurrent multi-writer convergence. Your "concurrency" is one user on one device. | If/when you ship realtime multiplayer editing of setups. Read CRDT papers earlier for fun; ship them only when you need them. |
-| **Realtime collab (WebSocket)** | No second user to collaborate with. | After Phase 6, if user research says people pair on setups. |
-| **Event-driven architecture / queues** | One request, one handler, one DB call. You'll know when you need a queue because a long-running job times out the HTTP request. | First long-running async job (e.g., heavy compile, repo import). Start with one queue (Redis Streams), not Kafka. |
-| **Plugin marketplace** | You have no community, no plugins, no moderation problem. | Only after a genuine third party has *asked* to write a plugin. |
-| **WASM plugin sandbox** | Sandboxes solve "running untrusted code safely." You have zero untrusted code. | When you accept third-party transforms. Until then, modules are just TS files in your repo. |
-| **AI features** | Hallucinated text dotfiles are dangerous; AI shines *after* the compiler exists (because the compiler validates AI output). | Once the AST is stable, AI can emit AST patches. Don't bolt it on before. |
-| **Vector search** | You don't have a corpus. | Only when you have lots of community setups and a real "find similar" UX problem. Postgres FTS first. |
-| **Multi-region infra** | One region serves a few users at low latency. | When real users in a far region complain about real latency. Until then, one region per continent at most. |
-| **Enterprise auth (SSO/SAML/SCIM)** | No enterprise customers. | When the first one shows up with a check. |
-| **Team features** | No teams. | When real users ask to share private setups with a group. |
-| **GraphQL** | Avoids over-fetch across many clients. You have one client and you wrote both ends. | When 3+ heterogeneous clients or a public schema-driven API justify it. |
-| **OAuth provider libraries** | Black-boxing the one auth flow you should have learned the hard way. | After you've implemented it once by hand. |
-| **ORMs** | Hides the queries you need to read. | When *you* think the boilerplate exceeds the learning, not when the internet thinks so. |
-| **Docker (dev)** | Adds a layer between you and the process. | When you're packaging for deploy. |
-| **Multi-cloud** | You have zero clouds. | Functionally never for this project. |
+| Removed                                | Why it's premature now                                                                                                          | When it might become relevant                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Microservices**                      | One process is comprehensible; many is not. The bug surface multiplies before the load does.                                    | When two genuinely independent lifecycles or scaling profiles emerge, _and_ you have ops to support it.                       |
+| **Kubernetes**                         | A solution to a problem you don't have (orchestrating many containers across many machines).                                    | If you ever run dozens of services across many nodes with real SLOs. For one Node/Go binary, `systemd` is plenty.             |
+| **CRDTs**                              | They solve concurrent multi-writer convergence. Your "concurrency" is one user on one device.                                   | If/when you ship realtime multiplayer editing of setups. Read CRDT papers earlier for fun; ship them only when you need them. |
+| **Realtime collab (WebSocket)**        | No second user to collaborate with.                                                                                             | After Phase 6, if user research says people pair on setups.                                                                   |
+| **Event-driven architecture / queues** | One request, one handler, one DB call. You'll know when you need a queue because a long-running job times out the HTTP request. | First long-running async job (e.g., heavy compile, repo import). Start with one queue (Redis Streams), not Kafka.             |
+| **Plugin marketplace**                 | You have no community, no plugins, no moderation problem.                                                                       | Only after a genuine third party has _asked_ to write a plugin.                                                               |
+| **WASM plugin sandbox**                | Sandboxes solve "running untrusted code safely." You have zero untrusted code.                                                  | When you accept third-party transforms. Until then, modules are just TS files in your repo.                                   |
+| **AI features**                        | Hallucinated text dotfiles are dangerous; AI shines _after_ the compiler exists (because the compiler validates AI output).     | Once the AST is stable, AI can emit AST patches. Don't bolt it on before.                                                     |
+| **Vector search**                      | You don't have a corpus.                                                                                                        | Only when you have lots of community setups and a real "find similar" UX problem. Postgres FTS first.                         |
+| **Multi-region infra**                 | One region serves a few users at low latency.                                                                                   | When real users in a far region complain about real latency. Until then, one region per continent at most.                    |
+| **Enterprise auth (SSO/SAML/SCIM)**    | No enterprise customers.                                                                                                        | When the first one shows up with a check.                                                                                     |
+| **Team features**                      | No teams.                                                                                                                       | When real users ask to share private setups with a group.                                                                     |
+| **GraphQL**                            | Avoids over-fetch across many clients. You have one client and you wrote both ends.                                             | When 3+ heterogeneous clients or a public schema-driven API justify it.                                                       |
+| **OAuth provider libraries**           | Black-boxing the one auth flow you should have learned the hard way.                                                            | After you've implemented it once by hand.                                                                                     |
+| **ORMs**                               | Hides the queries you need to read.                                                                                             | When _you_ think the boilerplate exceeds the learning, not when the internet thinks so.                                       |
+| **Docker (dev)**                       | Adds a layer between you and the process.                                                                                       | When you're packaging for deploy.                                                                                             |
+| **Multi-cloud**                        | You have zero clouds.                                                                                                           | Functionally never for this project.                                                                                          |
 
 The principle: **defer until the cost of not having it has been felt, named, and dated in your
 notes at least three times.**
@@ -719,29 +720,29 @@ notes at least three times.**
 
 ### 6.1 What you will learn (compressed cross-phase map)
 
-| Layer | Concepts you'll own |
-|-------|----------------------|
-| Browser rendering | Canvas, render loops, frame budget, double buffering, glyph caches, dirty regions, text metrics |
-| Parsing | Lexers, recursive descent, parser state machines (Williams), shell tokenization quirks |
-| Compilers | AST design, IR design, lowering passes, visitors, emitters, diagnostics, golden tests |
-| Schemas & versioning | Typed schemas (`zod`/TS), forward migrations, deterministic serialization |
-| Input systems | Event capture, focus, FSMs, tries, layout-independent keys, accessibility |
-| Shells | Tokenization, pipelines, redirects, line editors, completion, history |
-| Terminals | VT/ANSI, palettes, scrollback, line wrap, cursor, modes, PTYs, line discipline |
-| OS / processes | `fork`, `exec`, `openpty`, signals, `ioctl(TIOCSWINSZ)`, stdio, raw vs cooked |
-| Networking | HTTP semantics, REST design, cookies, WebSockets (later), backpressure |
-| Storage | SQL (writing it), SQLite internals, indexes, transactions, migrations |
-| Identity | OAuth code+PKCE, sessions, cookie security, scope minimization |
-| State | React state, store-vs-prop boundaries, derived state, controlled vs. uncontrolled |
-| Engineering practice | Golden testing, design notes, ADRs, deferred abstraction, reading source |
+| Layer                | Concepts you'll own                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| Browser rendering    | Canvas, render loops, frame budget, double buffering, glyph caches, dirty regions, text metrics |
+| Parsing              | Lexers, recursive descent, parser state machines (Williams), shell tokenization quirks          |
+| Compilers            | AST design, IR design, lowering passes, visitors, emitters, diagnostics, golden tests           |
+| Schemas & versioning | Typed schemas (`zod`/TS), forward migrations, deterministic serialization                       |
+| Input systems        | Event capture, focus, FSMs, tries, layout-independent keys, accessibility                       |
+| Shells               | Tokenization, pipelines, redirects, line editors, completion, history                           |
+| Terminals            | VT/ANSI, palettes, scrollback, line wrap, cursor, modes, PTYs, line discipline                  |
+| OS / processes       | `fork`, `exec`, `openpty`, signals, `ioctl(TIOCSWINSZ)`, stdio, raw vs cooked                   |
+| Networking           | HTTP semantics, REST design, cookies, WebSockets (later), backpressure                          |
+| Storage              | SQL (writing it), SQLite internals, indexes, transactions, migrations                           |
+| Identity             | OAuth code+PKCE, sessions, cookie security, scope minimization                                  |
+| State                | React state, store-vs-prop boundaries, derived state, controlled vs. uncontrolled               |
+| Engineering practice | Golden testing, design notes, ADRs, deferred abstraction, reading source                        |
 
 ### 6.2 Why this matters
 
 Most engineers learn the **shape** of a system (the names of the layers, where files go in a
 framework) without learning the **physics** of it (what a render loop does each frame, what
 bytes flow through a pipe, what an index is doing under your query). The former lets you ship
-features in a known stack. The latter lets you walk into *any* stack and feel oriented within a
-day. Termi is constructed to teach the second kind of knowledge.
+features in a known stack. The latter lets you walk into _any_ stack and feel oriented within a
+day. Terminal is constructed to teach the second kind of knowledge.
 
 This is also why this is the right project. A terminal touches every interesting layer of a
 modern computer: pixels, fonts, input, parsing, processes, streams, OS, storage, and identity.
@@ -753,7 +754,7 @@ machine.
 - **Optimizing before measuring.** No glyph cache before you've profiled a frame. No index
   before you've EXPLAINed a slow query. Performance work without numbers is theatre.
 - **Refactoring without symptoms.** A bored refactor produces a different shape, not a better
-  one. Refactor when a real change is hard, and refactor *toward* that change.
+  one. Refactor when a real change is hard, and refactor _toward_ that change.
 - **Building abstractions for hypothetical futures.** Every "we might want X someday" line in
   your code is rent you'll pay forever. Build for the present; design for change.
 - **Copy-pasting from the internet without reading.** The worst learning path. If you copy,
@@ -761,7 +762,7 @@ machine.
 - **Skipping tests for "obvious" code.** Golden tests for the compiler and parser are not
   optional; they are the curriculum. Skipping them is skipping class.
 - **Treating libraries as magic.** When you depend on one, open its source the same day. You
-  don't have to read all of it, but you should know *where the interesting parts live*.
+  don't have to read all of it, but you should know _where the interesting parts live_.
 - **Ignoring errors.** Every `try { ... } catch {}` is a future debugging session you've already
   paid for. At minimum, log.
 
@@ -786,22 +787,22 @@ to matter.
 
 ### 6.5 Libraries you should avoid initially (and what they would teach you to skip)
 
-| Library | What it does for you | What you'd skip learning by using it now |
-|---------|----------------------|------------------------------------------|
-| `xterm.js` | Full terminal emulator | Render loops, ANSI parsing, scrollback, line wrap, glyph caching |
-| `node-pty` *(early)* | PTYs in Node | What a TTY is (use *after* understanding) |
-| `next.js` | Framework on top of React | Where rendering, routing, and data fetching actually live |
-| `redux` / `zustand` *(early)* | Global state | What a controlled-component data flow really looks like |
-| `prisma` / `drizzle` | SQL + types | SQL itself, indexes, transactions, query plans |
-| `apollo` / `urql` | GraphQL client | HTTP, REST, cache semantics |
-| `nearley` / `peg.js` | Parser generators | How to *write* a recursive-descent parser |
-| any OAuth library | Identity flows | RFC 6749/7636 — the easiest RFCs to read |
-| `socket.io` | Sugar over WebSockets | The framing/lifecycle of plain WS |
-| any ANSI parsing npm | ANSI handling | Williams's state diagram |
-| any "kbd-shortcut" lib | Keyboard handling | FSMs, tries, layout-independent keys |
-| `docker` *(early)* | Reproducible local env | What runs on your machine and how |
+| Library                       | What it does for you      | What you'd skip learning by using it now                         |
+| ----------------------------- | ------------------------- | ---------------------------------------------------------------- |
+| `xterm.js`                    | Full terminal emulator    | Render loops, ANSI parsing, scrollback, line wrap, glyph caching |
+| `node-pty` _(early)_          | PTYs in Node              | What a TTY is (use _after_ understanding)                        |
+| `next.js`                     | Framework on top of React | Where rendering, routing, and data fetching actually live        |
+| `redux` / `zustand` _(early)_ | Global state              | What a controlled-component data flow really looks like          |
+| `prisma` / `drizzle`          | SQL + types               | SQL itself, indexes, transactions, query plans                   |
+| `apollo` / `urql`             | GraphQL client            | HTTP, REST, cache semantics                                      |
+| `nearley` / `peg.js`          | Parser generators         | How to _write_ a recursive-descent parser                        |
+| any OAuth library             | Identity flows            | RFC 6749/7636 — the easiest RFCs to read                         |
+| `socket.io`                   | Sugar over WebSockets     | The framing/lifecycle of plain WS                                |
+| any ANSI parsing npm          | ANSI handling             | Williams's state diagram                                         |
+| any "kbd-shortcut" lib        | Keyboard handling         | FSMs, tries, layout-independent keys                             |
+| `docker` _(early)_            | Reproducible local env    | What runs on your machine and how                                |
 
-The principle is *not* "libraries are bad." It is "use a library when you have already
+The principle is _not_ "libraries are bad." It is "use a library when you have already
 understood, or chosen not to understand, what it does." That ordering preserves your education.
 
 ### 6.6 When to introduce abstractions (a checklist)
@@ -825,9 +826,9 @@ A specific recipe, because this is the most underrated engineering skill:
 2. **Find the entry point.** `package.json` → `main`, or the README, or `src/index.*`.
 3. **Follow one type/name.** Pick a noun in your question (e.g., `Buffer`, `Renderer`) and grep
    for its definition. Read just that file.
-4. **Skim, don't read.** First pass: read function *signatures* and top-of-file comments.
+4. **Skim, don't read.** First pass: read function _signatures_ and top-of-file comments.
    Second pass: read the function bodies that look closest to your question.
-5. **Read tests.** Tests are the *spec*. Often clearer than the implementation.
+5. **Read tests.** Tests are the _spec_. Often clearer than the implementation.
 6. **Run it in a debugger.** Set a breakpoint at your question's most-likely site, trigger the
    behavior, watch the stack.
 7. **Write a five-line summary in your notes.** "In xterm.js, scrolling is the `Buffer`
@@ -835,14 +836,14 @@ A specific recipe, because this is the most underrated engineering skill:
 8. **Implement a 50-line version.** Reading without implementing is a hobby.
 
 Apply this recipe to: `xterm.js`, `node-pty`, `bash` (lex/parse), `nvim` (event loop),
-`alacritty/vte` (parser), `swc` (visitor), `sqlite` (skim the *architecture* page).
+`alacritty/vte` (parser), `swc` (visitor), `sqlite` (skim the _architecture_ page).
 
 ---
 
 ## 7. Architecture evolution — earned, not pursued
 
-Architecture is an *artifact of growth*, not a starting position. Here's a plausible decade-long
-shape, with each step *triggered by need*, not by trend. None of these should be implemented
+Architecture is an _artifact of growth_, not a starting position. Here's a plausible decade-long
+shape, with each step _triggered by need_, not by trend. None of these should be implemented
 preemptively.
 
 ```
@@ -874,7 +875,7 @@ Year ~5: split a second service. Not before. Even then, only one.
 ```
 
 Notice: there is no Kubernetes here. There is no edge compute. There is no microservices. There
-is no marketplace. None of those are *bad*; all of them are *premature*. The architecture
+is no marketplace. None of those are _bad_; all of them are _premature_. The architecture
 arrives where it needs to be, by being pushed there by real users and real measurements.
 
 ---
@@ -885,7 +886,7 @@ A few habits that make the project compound:
 
 - **Keep `docs/notes/`.** Per topic (e.g., `ansi-parser.md`, `tty-vs-pty.md`,
   `oauth-pkce.md`). Each note is a few paragraphs you'd be willing to teach from. Add to them
-  as you learn; they become *your* textbook.
+  as you learn; they become _your_ textbook.
 - **Write ADRs in `docs/ADRs/`** for any decision you'd be uncomfortable reversing without
   thought. One file each, dated, with: context, options, decision, consequences. Five paragraphs
   is plenty.
@@ -945,10 +946,10 @@ When you're done with any phase, you should be able to do all of this without no
 - Reproduce one bug you found, explain it, and show the fix in the diff.
 - Name one library that "would have done this for you" and explain what you would have not
   learned by using it.
-- Point at one place in the code where you *resisted* a premature abstraction, and explain how
+- Point at one place in the code where you _resisted_ a premature abstraction, and explain how
   you'd add it later if needed.
 
-If those five things are true, you didn't just write the phase — you *learned* it. That is the
+If those five things are true, you didn't just write the phase — you _learned_ it. That is the
 only metric this document cares about.
 
 ---
@@ -956,13 +957,13 @@ only metric this document cares about.
 ## 11. Closing word
 
 This is not a startup plan. It is a syllabus written in code. The end state is not a $X million
-company; it is *you*, sitting in front of any unfamiliar codebase, feeling oriented within a
+company; it is _you_, sitting in front of any unfamiliar codebase, feeling oriented within a
 day, because you've built a tiny version of every layer at least once.
 
 Most of the engineers you admire didn't get there from courses. They got there from picking one
-ambitious project and refusing to let any part of it stay magic. Termi can be that project.
+ambitious project and refusing to let any part of it stay magic. Terminal can be that project.
 
 Pick up Phase 1. Open an empty file called `renderer/index.ts`. Draw a single cell on a canvas.
 Tomorrow, draw the second one. The rest is just doing that, on purpose, for years.
 
-— *End of v1.0.*
+— _End of v1.0._

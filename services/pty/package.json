@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Local PTY backend for Termi — bridges real shells to the in-browser terminal over WebSocket (localhost only).",
+  "description": "Local PTY backend for Terminal — bridges real shells to the in-browser terminal over WebSocket (localhost only).",
   "scripts": {
     "postinstall": "node scripts/fix-perms.mjs",
     "prestart": "node scripts/fix-perms.mjs",

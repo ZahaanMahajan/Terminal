@@ -1,4 +1,4 @@
-# `src/persistence/` — Phase 6: the browser client for the Termi API
+# `src/persistence/` — Phase 6: the browser client for the Terminal API
 
 > Per `docs/PLANNING_AND_ARCHITECTURE.md` §4 Phase 6. The backend is `services/api/`; this is the
 > web app's thin, typed client for it. The demo is `demos/SyncDemo.tsx` (the **Sync (P6)** tab).
@@ -28,7 +28,7 @@ index.ts    re-exports
 
 > Use **`localhost`** (not `127.0.0.1`) for both the web app and the API. The session cookie is
 > host-scoped; with both on `localhost` (differing only by port) the credentialed `fetch` is
-> *same-site*, so the `SameSite=Lax` cookie is sent. Mixing the two hostnames drops the cookie.
+> _same-site_, so the `SameSite=Lax` cookie is sent. Mixing the two hostnames drops the cookie.
 
 ## Run the end-to-end
 
@@ -39,6 +39,6 @@ index.ts    re-exports
 
 ## Testing
 
-`client.test.ts` stubs `global.fetch` to assert the client's *logic* — right URL/method, `credentials:
+`client.test.ts` stubs `global.fetch` to assert the client's _logic_ — right URL/method, `credentials:
 'include'`, the `{setups}` unwrap, `401 → null`, `204 → undefined`, and `ApiError` mapping. The
 network itself and the OAuth round-trip are verified by running.

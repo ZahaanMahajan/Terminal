@@ -1,10 +1,10 @@
-# Termi
+# Terminal
 
 A solo, learning-first systems project: build a terminal ecosystem — renderer, parser, shell,
 compiler, PTY, persistence — from primitives, mastering every layer.
 
 > Not a startup. Not a SaaS. A self-taught senior-engineer curriculum disguised as a terminal
-> ecosystem. *Build engines before products. Understand every layer.*
+> ecosystem. _Build engines before products. Understand every layer._
 
 ## Where to start
 

@@ -1,13 +1,13 @@
-# Termi — Project Skills & Decision Log
+# Terminal — Project Skills & Decision Log
 
-> Living index for the **Termi** project. This file is the table of contents + decision journal.
+> Living index for the **Terminal** project. This file is the table of contents + decision journal.
 > It is updated at the end of every working session. Detailed content lives in `docs/`.
 
 **Project (one-liner):** A solo, learning-first systems project: build a terminal ecosystem
 (renderer, parser, shell, compiler, PTY, persistence) from primitives, mastering every layer.
 
 **Posture:** **NOT** a startup. **NOT** a SaaS. A self-taught senior-engineer curriculum disguised
-as a terminal ecosystem. *Build engines before products. Understand every layer.*
+as a terminal ecosystem. _Build engines before products. Understand every layer._
 
 **Phase:** `06 — Persistence + Tiny Backend` ✅ complete (backend steps 1–3 + frontend wiring). **All 6 phases done.** Only the live GitHub OAuth round-trip needs the user's own OAuth-app creds.
 **Repo state:** All 6 phases complete. Backend `services/api/` (Node + better-sqlite3): app-owned migrations, hand-rolled GitHub OAuth (PKCE) + signed httpOnly sessions, `/setups` CRUD (session-guarded, ownership-scoped 404-not-403). Web app `src/persistence/` (typed cookie-credentialed API client) + `Sync (P6)` demo tab (sign-in, save/load, recompiles the loaded AST via P4 `compileRaw`). API: 38 `node:test`. Web: 445 Vitest (incl. 6 client tests), build clean (346 KB / 105 KB gzip). Live cross-device test needs `services/api` running with `GITHUB_CLIENT_ID/SECRET` + a GitHub OAuth App.
@@ -17,11 +17,11 @@ as a terminal ecosystem. *Build engines before products. Understand every layer.
 
 ## Document index
 
-| Doc | Purpose | Status |
-|-----|---------|--------|
-| [docs/PLANNING_AND_ARCHITECTURE.md](docs/PLANNING_AND_ARCHITECTURE.md) | Master roadmap — philosophy, phases, evolution | ✅ v1.0 (rewrite) |
-| docs/ADRs/ | Architecture Decision Records (one file per decision) | ⏳ pending |
-| docs/notes/ | Per-topic learning notes (your textbook) | ⏳ pending |
+| Doc                                                                    | Purpose                                               | Status            |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- | ----------------- |
+| [docs/PLANNING_AND_ARCHITECTURE.md](docs/PLANNING_AND_ARCHITECTURE.md) | Master roadmap — philosophy, phases, evolution        | ✅ v1.0 (rewrite) |
+| docs/ADRs/                                                             | Architecture Decision Records (one file per decision) | ⏳ pending        |
+| docs/notes/                                                            | Per-topic learning notes (your textbook)              | ⏳ pending        |
 
 ---
 
@@ -29,29 +29,29 @@ as a terminal ecosystem. *Build engines before products. Understand every layer.
 
 Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 explicitly deferred
 
-| Phase | Build | Core concepts | Status |
-|-------|-------|---------------|--------|
-| 1 | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8) |
-| 2 | Keyboard & Input Systems (modal FSM, tries, conflict detection) | events, FSMs, tries, layout-independent keys, a11y | ✅ done (steps 1–4) |
-| 3 | Fake Shell (line editor, parser, fake FS, history, completion) | tokenizers, recursive descent, REPL, replaceability | ✅ done (steps 1–4) |
-| 4 | **Config Compiler** (AST → IR → emit, validation, golden tests) | compilers, IRs, schemas, migrations, diagnostics | ✅ done (steps 1–4 — the heart) |
-| 5 | Real PTY Integration (node-pty/creack-pty, WS bridge) | TTYs, fork/exec, signals, line discipline, streams | ✅ done (steps 1–3) |
-| 6 | Persistence + Tiny Backend (SQLite, own OAuth, REST) | SQL, sessions, OAuth PKCE, migrations | ✅ done (backend + web wiring) |
+| Phase | Build                                                             | Core concepts                                                                                                                   | Status                          |
+| ----- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 1     | Terminal Rendering Engine (Canvas, ANSI parser, scrollback, wrap) | render loops, FSMs, glyph caches, dirty regions, VT100, ring buffers, unit testing, wrap+reflow, ANSI/CSI/SGR, style attrs, LRU | ✅ done (steps 1–8)             |
+| 2     | Keyboard & Input Systems (modal FSM, tries, conflict detection)   | events, FSMs, tries, layout-independent keys, a11y                                                                              | ✅ done (steps 1–4)             |
+| 3     | Fake Shell (line editor, parser, fake FS, history, completion)    | tokenizers, recursive descent, REPL, replaceability                                                                             | ✅ done (steps 1–4)             |
+| 4     | **Config Compiler** (AST → IR → emit, validation, golden tests)   | compilers, IRs, schemas, migrations, diagnostics                                                                                | ✅ done (steps 1–4 — the heart) |
+| 5     | Real PTY Integration (node-pty/creack-pty, WS bridge)             | TTYs, fork/exec, signals, line discipline, streams                                                                              | ✅ done (steps 1–3)             |
+| 6     | Persistence + Tiny Backend (SQLite, own OAuth, REST)              | SQL, sessions, OAuth PKCE, migrations                                                                                           | ✅ done (backend + web wiring)  |
 
 ---
 
 ## Stack (intentionally small)
 
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Frontend | **React + TypeScript + Vite + Tailwind** | Minimum scaffolding around your own code |
-| Schema/validation | **zod** (Phase 4) | doc-endorsed; one declaration = runtime validator + static type |
-| Renderer | **Canvas 2D API**, hand-written | Learn the renderer by being the renderer |
-| State | React state + small contexts | Defer Zustand/Redux until pain is real |
-| Backend (Phase 5+) | **Node or Go, one binary** | Monolith-first; write the harder of the two for you |
-| DB (Phase 6) | **SQLite + plain SQL** (no ORM) | Learn SQL, indexes, transactions, EXPLAIN |
-| Auth (Phase 6) | **Own OAuth code+PKCE** from RFC | Lose fear of identity providers once and for all |
-| API | **REST only** | No GraphQL/gRPC/WS until justified |
+| Layer              | Choice                                   | Why                                                             |
+| ------------------ | ---------------------------------------- | --------------------------------------------------------------- |
+| Frontend           | **React + TypeScript + Vite + Tailwind** | Minimum scaffolding around your own code                        |
+| Schema/validation  | **zod** (Phase 4)                        | doc-endorsed; one declaration = runtime validator + static type |
+| Renderer           | **Canvas 2D API**, hand-written          | Learn the renderer by being the renderer                        |
+| State              | React state + small contexts             | Defer Zustand/Redux until pain is real                          |
+| Backend (Phase 5+) | **Node or Go, one binary**               | Monolith-first; write the harder of the two for you             |
+| DB (Phase 6)       | **SQLite + plain SQL** (no ORM)          | Learn SQL, indexes, transactions, EXPLAIN                       |
+| Auth (Phase 6)     | **Own OAuth code+PKCE** from RFC         | Lose fear of identity providers once and for all                |
+| API                | **REST only**                            | No GraphQL/gRPC/WS until justified                              |
 
 ---
 
@@ -59,24 +59,24 @@ Status: ⬜ not started · 🟦 spec'd · 🟨 in progress · ✅ done · 🚫 e
 
 These are NOT in scope until specific pain shows up. See §5 of the architecture doc.
 
-| Deferred | Trigger that would justify revisiting |
-|----------|---------------------------------------|
-| Next.js | Public, SEO-critical pages (Phase 6+) |
-| xterm.js | After Phase 1 is solid; possibly as a swap, not before |
-| node-pty | Phase 5 — after the fake shell is done |
-| WebSockets | Phase 5 (PTY bridge); collab much later |
-| Microservices | Two independent lifecycles + ops to support it |
-| Kubernetes | 🚫 essentially never for this project |
-| CRDTs / realtime collab | A real second user editing the same setup |
-| Queues / event bus | First long-running job that times out HTTP |
-| Plugin marketplace | A third party *asks* to publish a plugin |
-| WASM plugin sandbox | The moment you accept untrusted code |
-| AI features | After the AST is stable (AI emits AST patches) |
-| Vector search | After Postgres FTS has been outgrown |
-| Enterprise auth / SSO / SCIM | First enterprise customer with a check |
-| Docker (dev) | When packaging for deploy |
-| GraphQL | 3+ heterogeneous clients |
-| ORMs | When you decide SQL boilerplate exceeds the learning |
+| Deferred                     | Trigger that would justify revisiting                  |
+| ---------------------------- | ------------------------------------------------------ |
+| Next.js                      | Public, SEO-critical pages (Phase 6+)                  |
+| xterm.js                     | After Phase 1 is solid; possibly as a swap, not before |
+| node-pty                     | Phase 5 — after the fake shell is done                 |
+| WebSockets                   | Phase 5 (PTY bridge); collab much later                |
+| Microservices                | Two independent lifecycles + ops to support it         |
+| Kubernetes                   | 🚫 essentially never for this project                  |
+| CRDTs / realtime collab      | A real second user editing the same setup              |
+| Queues / event bus           | First long-running job that times out HTTP             |
+| Plugin marketplace           | A third party _asks_ to publish a plugin               |
+| WASM plugin sandbox          | The moment you accept untrusted code                   |
+| AI features                  | After the AST is stable (AI emits AST patches)         |
+| Vector search                | After Postgres FTS has been outgrown                   |
+| Enterprise auth / SSO / SCIM | First enterprise customer with a check                 |
+| Docker (dev)                 | When packaging for deploy                              |
+| GraphQL                      | 3+ heterogeneous clients                               |
+| ORMs                         | When you decide SQL boilerplate exceeds the learning   |
 
 ---
 
@@ -87,7 +87,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 - **No library you cannot describe in a paragraph.**
 - **Rule of three for abstractions.** First time: note. Second time: note. Third time: extract.
 - **Golden tests for renderers, parsers, compilers.** Diffs are the teacher.
-- **Defer until the cost of *not* having it has been felt, named, and dated three times.**
+- **Defer until the cost of _not_ having it has been felt, named, and dated three times.**
 
 ---
 
@@ -108,7 +108,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 - **2026-05-29** — **Phase 6, frontend integration: sign-in + save/load — Phase 6 (and the whole
   curriculum) complete.** New `apps/web/src/persistence/`: `client.ts` — a typed, cookie-credentialed
   (`credentials:'include'`) API client (`getMe` maps 401→null, `listSetups/get/create/update/delete/
-  publishSetup`, `logout`, `loginUrl`; `ApiError` carries the server message). New `demos/SyncDemo.tsx`
+publishSetup`, `logout`, `loginUrl`; `ApiError` carries the server message). New `demos/SyncDemo.tsx`
   (**Sync (P6)** tab, 6th tab in `App.tsx`): full-page GitHub sign-in, user header + sign-out, an AST
   editor + setups list (load/publish/delete), handles `?auth_error=` from a failed callback, and
   **recompiles the loaded AST via P4 `compileRaw`** so you watch the same dotfiles regenerate — the
@@ -130,7 +130,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   204→get 404. **Phase 6 backend done.** Remaining for the phase's exit criteria: web-app wiring
   (`apps/web` sign-in + save/load UI calling `/me` + `/setups`); optional git-sync.
 - **2026-05-29** — **Phase 6, step 2: auth — GitHub OAuth + sessions, by hand.** No auth library
-  (the plan lists "OAuth provider libraries" under *avoid*). BFF flow — the browser never sees a
+  (the plan lists "OAuth provider libraries" under _avoid_). BFF flow — the browser never sees a
   token. New modules in `services/api/src/`: `crypto.ts` (HMAC-signed cookies + PKCE S256, pure),
   `cookies.ts` (parse/serialize), `config.ts` (env→`AuthConfig`, null = disabled so `/health` still
   boots), `store.ts` (users + sessions SQL — upsert by `github_id`, sliding idle expiry, rotate on
@@ -170,7 +170,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   stashes the primary scrollback + viewport and swaps in a fresh **capacity-`rows`** Scrollback
   (no history — appending at the bottom evicts the top, i.e. fixed-screen scroll); `exitAltScreen()`
   restores them (clamping the viewport in case a resize shortened the reflowed primary). `setCols`
-  now reflows the *stashed* primary while in alt so quitting lands at the right width.
+  now reflows the _stashed_ primary while in alt so quitting lands at the right width.
   `renderer/ansi/interpret.ts`: `setPrivateModes` dispatches DECSET/DECRST (`CSI ?Pm h/l`) — `25`
   cursor show/hide, `47`/`1047`/`1049` alt screen, `1048` cursor save/restore; threads the parser's
   `?` `prefix` (already captured) into `dispatchCsi`. `renderer/cursor.ts`: adds `hidden` (DECTCEM,
@@ -181,7 +181,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   (3 of 4 exit criteria met in code; the 4th is a whiteboard/reading exercise). Bundle 338 KB /
   103 KB gzip. Next: Phase 6, Persistence + tiny backend.
 - **2026-05-29** — **Phase 5, step 2: frontend bridge — real shell in the browser.** New
-  `src/pty/`: `key-to-bytes.ts` (the *inverse* of the ANSI parser — `Key`→input bytes: Ctrl-A…Z→
+  `src/pty/`: `key-to-bytes.ts` (the _inverse_ of the ANSI parser — `Key`→input bytes: Ctrl-A…Z→
   0x01…0x1A, Enter→CR, Backspace→DEL, arrows/Home/F-keys→CSI/SS3, printables→`event.key`, Alt→ESC
   prefix; pure, **+11 golden tests**), `pty-client.ts` (POST /pty + WS: input=binary, resize=text
   control, output=binary→renderer, graceful "start the server" on failure). `demos/PtyDemo.tsx`
@@ -221,7 +221,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
 - **2026-05-28** — **Phase 4, step 2: IR + lowering + emit + golden tests.** The full
   `Setup → IR → text` pipeline. `ir.ts`: `ShellIR` (ordered `ShellStmt[]`) shared by zsh/bash +
   `StarshipIR`. `lower.ts`: `lowerShell` orders sections (env → options → plugins → aliases →
-  prompt-init) — *the lowering owns ordering*; `lowerPrompt` builds the starship format string.
+  prompt-init) — _the lowering owns ordering_; `lowerPrompt` builds the starship format string.
   `emit.ts`: pure + deterministic; exports double-quoted (`$` kept), aliases single-quoted
   (`'\''` trick), `setopt`/`shopt -s` + plugin path/prompt-init branch on shell. `compile.ts`:
   `compile(setup)` → artifacts (.zshrc/.bashrc + optional starship.toml); `compileRaw` parses
@@ -268,7 +268,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   each `(ctx)=>{stdout,stderr,code}` — same contract a real PTY command will have), `executor.ts`
   (execCommand→execPipeline→execAndOr→execScript; redirects, stdout→stdin piping, `&&`/`||`
   short-circuit, `;`; `run()` turns ShellError into a printable line). **`echo "hello $USER" | tr
-  a-z A-Z` → `HELLO WORLD` runs end-to-end (tested).** Caught + documented a tilde/quoting
+a-z A-Z` → `HELLO WORLD` runs end-to-end (tested).** Caught + documented a tilde/quoting
   simplification (2-kind model can't tell bare from double-quoted). **+48 tests** (filesystem 11,
   expand 12, executor 25) for **330 total, 92ms**. Build unchanged (not app-wired yet). Next:
   line editor + history + completion + prompt REPL (step 4 → interactive shell demo).
@@ -311,7 +311,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   chainable, `bindings(mode)` introspection, `tokensToNotation`; actions are **named ids**, not
   callbacks). New `resolver.ts` (`KeyResolver`: `feed(key)` → `FeedResult` with fire / await
   (prefix or ambiguous+`stagedAction`) / unbound / dead-end-discard outcomes; timeouts are
-  *injected* — host arms a timer on non-empty `pending` and calls `flushTimeout()`; pure +
+  _injected_ — host arms a timer on non-empty `pending` and calls `flushTimeout()`; pure +
   deterministic). KeyboardDemo rewritten into a resolver playground: live pending buffer, fired
   actions log, the `<space>`/`<space><space>` ambiguity demonstrating timeout-fire, and a keymap
   legend. **+23 tests** (10 keymap + 13 resolver) for **173 total, 73ms**. Build: 226 KB JS /
@@ -335,18 +335,18 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   `drawScreen`/`drawScreenDirty` thread an optional `cache`. Loop gained `getCache` +
   `forceFullRepaint` options and an `avgPaintMs` EMA stat. App got runtime toggles (glyph
   cache on/off, stress full-repaint-per-frame) so the speedup is measurable in the HUD —
-  *measure before optimizing*. Fixed parameter-property syntax (constructor `private readonly`)
+  _measure before optimizing_. Fixed parameter-property syntax (constructor `private readonly`)
   → explicit fields for `erasableSyntaxOnly`. **+15 tests** (7 lru + 8 glyph-cache) for **124
   total, 34ms**. Build: 215 KB JS / 68 KB gzip. **Phase 1 exit criteria all met.**
 - **2026-05-27** — **Phase 1, step 7: cell style attrs (bold / italic / underline / inverse).**
-  Added `ATTR_*` bit-flag constants and an *optional* `attrs?: number` on `Cell` (keeps
+  Added `ATTR_*` bit-flag constants and an _optional_ `attrs?: number` on `Cell` (keeps
   emptyCell narrow and existing test literals stable). `Pen` got a required `attrs: number`.
   SGR now handles codes 1/3/4/7 (set) and 22/23/24/27 (clear) plus 0 (reset all). `printChar`
-  stamps `pen.attrs` into a new cell *only when non-zero*. `CellMetrics` carries
+  stamps `pen.attrs` into a new cell _only when non-zero_. `CellMetrics` carries
   `fontFamily/fontSizePx` so `drawCell` can rebuild `ctx.font` for bold/italic on the fly.
   Underline draws a thin baseline stroke; inverse swaps fg/bg before paint. `reflow`'s
   `isFullyDefault` now treats any non-zero attrs as "not default" so styled trailing cells
-  survive reflow. `drawCursor` resolves the cell's *displayed* fg/bg under ATTR_INVERSE so
+  survive reflow. `drawCursor` resolves the cell's _displayed_ fg/bg under ATTR_INVERSE so
   the block cursor paints correctly on inverted text. **+7 tests** in `interpret.test.ts`
   for **109 total, 27ms**. Build: 212 KB JS / 67 KB gzip (+1 KB).
 - **2026-05-27** — **Phase 1, step 6: ANSI parser + interpreter (+ 256/truecolor SGR).** New
@@ -388,7 +388,7 @@ These are NOT in scope until specific pain shows up. See §5 of the architecture
   cursor.** Extracted `Cell` to `cell.ts` (breaks the Screen↔Scrollback import cycle). New
   `scrollback.ts` — fixed-capacity ring buffer of `Line`s with monotonic, never-reused absolute
   line ids; `appendLine` evicts oldest at capacity, `getLine` returns null for evicted ids.
-  `Screen` refactored to a *view*: holds `viewportTop` (absolute id), reads/writes via the
+  `Screen` refactored to a _view_: holds `viewportTop` (absolute id), reads/writes via the
   scrollback, scroll is pure math. New methods: `scrollTo`, `scrollBy`, `scrollToBottom`,
   `appendLine`, `println`. Cursor moved from `{col,row}` (viewport) to `{col,lineId}` (absolute);
   added `cursorViewportRow` helper used by blink, move, draw. App pre-fills 200 lines of demo
